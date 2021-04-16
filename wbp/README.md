@@ -25,7 +25,7 @@ By default the script reads the input from standard in (stdin) and outputs to
 standard out (stdout). If this file is run from the makefile provided in the
 parent directory it is run with `wb-ids.txt` as the input file and 
 `../data/wbp-data.csv` as the output destination. If `debug` is the make target
-rather than `all` `wb-short.ttxt` is used as the input file and `wbp-test.csv` 
+rather than `all` `wb-short.txt` is used as the input file and `wbp-test.csv` 
 is used for the output file.
 
 
