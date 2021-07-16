@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
 
-
 ################################################################################
 # afdb/afdb-scrape.R                                                           #
 #                                                                              #
@@ -17,17 +16,22 @@
 # outputs: a csv file containing project numbers, description, planned         #
 #          completion date, and dac sector codes                               #
 ################################################################################
+#install.packages("tidyverse")
+#install.packages("xml2")
+#install.packages("magrittr")
+#install.packages("rvest")
+#install.packages("sjmisc")
 library(tidyverse)
 library(xml2)
 library(magrittr)
 library(rvest)
+library(sjmisc)
 
-debug <- FALSE
+debug <- TRUE
 
 base_url <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 filename <- if(debug) "afdb-short.txt" else "afdb-ids.txt"
-ouput_file <- if(debug) "../data/afdb-test.csv" else "../data/afdb-data.csv"
-
+output_file <- if(debug) "../data/afdb-test.csv" else "../data/afdb-data.csv"
 
 # From what i can tell this is the best way to prevent the whole system from 
 # crashing on a network glitch.
@@ -60,27 +64,80 @@ write_file <- function(df, filename) {
 		}
 	)
 }
+
+main_table_parse <- function(page, x1) {
+  temp <- (page %>% 
+    html_node(".table") %>%
+    html_table(header = FALSE) %>%
+    filter(X1 == x1))
+  # check if table had requested data, if not replaced with "N/A"
+  return (if(nrow(temp) == 0) "N/A" else temp[['X2']])
+}
+
+#Searches every table in the html page for x1
+all_table_parse <- function(page, x1) {
+  ret <- ""
+  tables <- (page %>% html_nodes("table"))
+  for(i in 1:length(tables)){
+    if(is.null(tables[[i]])){
+      next
+    }
+    table <- tables %>% .[[i]] %>% 
+             html_table(header = FALSE, trim=TRUE)
+    #Check if the current table has terrible whitespace in the way the funding table does. 
+    if(str_contains(table[['X1']], "\n\t") && !str_contains(table[['X1']], "Download")){
+      #Reconstruct in the way it should be then filter
+      table_str <- str_replace_all(table[['X1']], "[^\\S ]+[ ]+[^\\S ]+", "***")
+      #cat("TABLE_POST:")
+      #print(table_str)
+      table_list <- strsplit(table_str, "\\*\\*\\*")
+      if(is.null(table_list) || length(table_list) == 0){
+        print("TABLE_LIST IS NULL")
+      } else {      
+        print(paste("TABLE_LIST IS", table_list)) 
+        for(j in 1:length(table_list)){
+          if(table_list[[j]][[1]] == x1){
+            ret <- paste(ret, table_list[[j]][[2]], sep = ", ")
+          }  
+        }
+      }
+    }
+  }
+  
+  ret <- substring(ret, first = 3)
+  #print(paste("RETURNING:", ret))
+  return(ret)
+}
+
 # grab the project ids from the file specified earlier in the file
 proj_ids <- read_lines(filename, skip_empty_rows = TRUE)
 
 # create a dataframe to hold the scraped data.
-data <- data.frame(matrix(ncol = 5, nrow = 0))
+data <- data.frame(matrix(ncol = 15, nrow = 0))
 names(data) <- c(
-		"project.id", 
-		"project.description", 
-		"project.objective", 
-		"date.completed", 
-		"dac.code"
-	)
+		"Project Code",
+		"Country",
+		"Project Title",
+		"Objective",    
+		"Description",  
+		"Commitment in U.A.",
+		"Status",
+		"Start Date",
+		"Completion Date",
+    "Project Duration",
+		"Source of Financing",
+		"Sector",
+		"DAC Sector Code",
+		"DAC5 Code",
+		                #"DAC5 Description",
+		"Sovereign"
+)
 
 
-# go through all of the ids listed in the file
+# for each id in provided file
 for(id in proj_ids) {
-	# get the time at the start of the loop to ensure not to dos the afdb site
 	start <- Sys.time()
-	# this print is mainly so i know things are still going and haven't stalled
-	"scraping project" %>% paste(id, "\n" sep = " ") %>% cat()
-	# clear things for the loop
+	"scraping project" %>% paste(id, "\n", sep = " ") %>% cat()
 	page  <- NULL
 	count <- 0
 
@@ -88,40 +145,44 @@ for(id in proj_ids) {
 	# request error. only retry 20 times in case there is a bad id that doesn't
 	# work (it happened, don't remove the loop limiter)
 	while(length(page) == 0 && count < 20){
-		# download the webpage
-		page <- get_html(paste(base_url, id, sep=""))
+	  page <- get_html(paste(base_url, id, sep=""))
 		count <- count + 1
 	}
-	# if the loop ended because of the loop limiter just go on to the next id
+	# if the loop ended because of the loop limiter skip to next id
 	if(length(page) == 0) next
 
 	##############################
 	# parse the web page results #
 	##############################
-
-	# turn the main table into a data frame and pull out the rows with the info
-	# we care about (projected completion date and dac sector code)
-	date <- (page %>% 
-		html_node(".table") %>%
-		html_table(header = FALSE) %>%
-		filter(X1 == "Planned Completion Date"))
-	dac <- (page %>% 
-		html_node(".table") %>%
-		html_table(header = FALSE) %>%
-		filter(X1 == "DAC Sector Code"))
-
-	# check to see if we got anything, if not replaced with n/a
-	date <- if(nrow(date) == 0) "N/A" else date[['X2']]
-	dac <- if(nrow(dac) == 0) "N/A" else dac[['X2']]
+	# pull info from main web page table
+	funding <- all_table_parse(page, "Funding")
+	
+	commitment <- main_table_parse(page, "Commitment")
+	commitment <- if (str_length(commitment) > 5) substring(commitment, 5) else commitment
+	status <- main_table_parse(page, "Status")
+	approval_date <- main_table_parse(page, "Approval Date")
+	completion_date <- main_table_parse(page, "Planned Completion Date")
+	duration <- round(difftime(as.Date(completion_date, format="%d %b %Y"),
+	                           as.Date(approval_date, format="%d %b %Y"),
+	                           units="days")
+                    / 365.25, 2)
+	sector <- main_table_parse(page, "Sector")
+	dac <- main_table_parse(page, "DAC Sector Code")
+	dac5 = substring(dac, 1,3)
+	sov <- main_table_parse(page, "Sovereign / Non-Sovereign")
+	#print(paste("funding: ", funding))
+	
+	#Get country & project names
+	country_plus_project <- str_split(page %>% html_node("h2") %>% html_text2(), " - ")[[1]]
+	country <- if(is.na(country_plus_project[1])) "N/A" else country_plus_project[1]
+	project <- if(is.na(country_plus_project[2])) "N/A" else country_plus_project[2]
 
 	# by default set to n/a will replace later if we find what we're after
 	desc <- "N/A"
 	obj <- "N/A"
 	# pull out all the divs and put them in a vector like object
 	divs <- page %>% html_nodes("div")
-
-	# iterate through the list looking for the general description and the
-	# objectives
+	# iterate through the list looking for information
 	for(div in divs) {
 		if(html_text(html_node(div,"h3")) %in% "Project General Description"){
 			desc <- div %>% html_node("p") %>% html_text()
@@ -130,12 +191,11 @@ for(id in proj_ids) {
 			obj <- div %>% html_node("p") %>% html_text()
 		}
 	}
-	# when debugging it can be useful to have this information. left out obj and
-	# desc because they are so long it makes the other information hard to see.	
-	if(debug) print(paste(id, date, dac, sep="; "))
+	
+	if(debug) print(paste(id, country, project, commitment, status, approval_date, completion_date, duration, funding, sector, dac, dac5, sov, sep="; "))
 
 	# add parsed data into the main data frame
-	data[nrow(data) + 1,] <- c(id, desc, obj, date, dac)
+	data[nrow(data) + 1,] <- c(id, country, project, obj, desc, commitment, status, approval_date, completion_date, duration, funding, sector, dac, dac5, sov)
 
 	# calculate elapsed time for request
 	elapsed <- Sys.time() - start
@@ -144,11 +204,13 @@ for(id in proj_ids) {
 		Sys.sleep(10-elapsed)
 	}
 }
-# similar to the http requests, handle errors on for writing to disk.
+
+# Write to disk
 written <- FALSE
 count <- 0
-# once again a loop with 20 retries, this time for writing to disk.
 while(!written && count < 20){
-	written <- write_file(data, ouput_file)
+	written <- write_file(data, output_file)
 	count <- count + 1
 }
+
+print("All done!")
