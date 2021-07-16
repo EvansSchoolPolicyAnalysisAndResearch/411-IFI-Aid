@@ -27,7 +27,7 @@ library(magrittr)
 library(rvest)
 library(sjmisc)
 
-debug <- TRUE
+debug <- FALSE
 
 base_url <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 filename <- if(debug) "afdb-short.txt" else "afdb-ids.txt"
@@ -65,6 +65,8 @@ write_file <- function(df, filename) {
   )
 }
 
+#Cleaner than all_table_parse, but also less generalizable
+# (only searches the first table in the HTML)
 main_table_parse <- function(page, x1) {
   temp <- (page %>% 
     html_node(".table") %>%
@@ -79,34 +81,30 @@ all_table_parse <- function(page, x1) {
   ret <- ""
   tables <- (page %>% html_nodes("table"))
   for(i in 1:length(tables)){
-    if(is.null(tables[[i]])){
-      next
-    }
-    table <- tables %>% .[[i]] %>% 
-             html_table(header = FALSE, trim=TRUE)
-    #Check if the current table has terrible whitespace in the way the funding table does. 
+    if(is.null(tables[[i]])) next
+    table <- tables %>% .[[i]] %>% html_table(header = FALSE, trim=TRUE)
+    #Check if the current table has bad formatting
     if(str_contains(table[['X1']], "\n\t") && !str_contains(table[['X1']], "Download")){
-      #Reconstruct in the way it should be then filter
+      #Correct formatting
       table_str <- str_replace_all(table[['X1']], "[^\\S ]+[ ]+[^\\S ]+", "***")
-      #cat("TABLE_POST:")
-      #print(table_str)
       table_list <- strsplit(table_str, "\\*\\*\\*")
-      if(is.null(table_list) || length(table_list) == 0){
-        print("TABLE_LIST IS NULL")
-      } else {      
-        print(paste("TABLE_LIST IS", table_list)) 
+      #Search through table rows for matches (i.e. filter)
+      if(!is.null(table_list) && length(table_list) > 0){
         for(j in 1:length(table_list)){
           if(table_list[[j]][[1]] == x1){
             ret <- paste(ret, table_list[[j]][[2]], sep = ", ")
           }  
         }
+        #Return if we've found the indicator
+        if(length(ret) > 0){
+          return(substring(ret, first = 3))
+        }
       }
+      else if(debug) print("TABLE IS NULL")
     }
   }
-  
-  ret <- substring(ret, first = 3)
-  #print(paste("RETURNING:", ret))
-  return(ret)
+  #Remove the first ", " from the string and return
+  return(substring(ret, first = 3))
 }
 
 # grab the project ids from the file specified earlier in the file
