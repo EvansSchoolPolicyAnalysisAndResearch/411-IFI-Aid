@@ -27,11 +27,11 @@ library(magrittr)
 library(rvest)
 library(sjmisc)
 
-debug <- TRUE
+debug <- FALSE
 
 base_url <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 filename <- if(debug) "afdb-short.txt" else "afdb-ids.txt"
-output_file <- if(debug) "../data/afdb-test.csv" else "../data/afdb-data.csv"
+output_file <- if(debug) "../data/afdb_test.csv" else "../data/afdb_data.csv"
 
 # From what i can tell this is the best way to prevent the whole system from 
 # crashing on a network glitch.
@@ -129,14 +129,14 @@ all_table_parse <- function(page, x1) {
 proj_ids <- read_lines(filename, skip_empty_rows = TRUE)
 
 # create a dataframe to hold the scraped data.
-data <- data.frame(matrix(ncol = 18, nrow = 0))
+data <- data.frame(matrix(ncol = 17, nrow = 0))
 names(data) <- c(
   "Project ID",
   "Country",
   "Project Title",
   "Description",  
   "Commitment in U.A.",
-  "Status",
+  #"Status",
   "Start Date",
   "Closing Date",
   "Project Duration",
@@ -172,10 +172,14 @@ for(id in proj_ids) {
   ##############################
   # parse the web page results #
   ##############################
-  # pull info from main web page table
+  # pull info from main web page table, only look at active projects
+  if(main_table_parse(page, "Status") != "Implementation"){
+    if(debug) print(paste("Skipping inactive project:", id))
+    next
+  } 
+  
   commitment <- main_table_parse(page, "Commitment")
   commitment <- if (str_length(commitment) > 5) substring(commitment, 5) else commitment
-  status <- main_table_parse(page, "Status")
   approval_date <- main_table_parse(page, "Approval Date")
   completion_date <- main_table_parse(page, "Planned Completion Date")
   duration <- round(difftime(as.Date(completion_date, format="%d %b %Y"),
@@ -183,7 +187,6 @@ for(id in proj_ids) {
                              units="days")
                     / 365.25, 2)
   duration <- if(!is.null(duration)) duration else "N/A"
-  print(duration)
   sov <- main_table_parse(page, "Sovereign / Non-Sovereign")
 
   sector <- main_table_parse(page, "Sector")
@@ -217,9 +220,9 @@ for(id in proj_ids) {
     }
   }
   
-  if(debug) print(paste(id, country, project, commitment, status, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
+  if(debug) print(paste(id, country, project, commitment, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
   # add parsed data into the main data frame
-  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, status, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
+  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
   
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
