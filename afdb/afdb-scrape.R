@@ -27,7 +27,7 @@ library(magrittr)
 library(rvest)
 library(sjmisc)
 
-debug <- FALSE
+debug <- TRUE
 
 base_url <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 filename <- if(debug) "afdb-short.txt" else "afdb-ids.txt"
@@ -79,19 +79,27 @@ main_table_parse <- function(page, x1) {
 #Searches every table in the html page for x1
 all_table_parse <- function(page, x1) {
   ret <- ""
-  tables <- (page %>% html_nodes("table"))
+  tables <- page %>% html_nodes("table")
+  #For each table on the webpage
   for(i in 1:length(tables)){
-    if(is.null(tables[[i]])) next
-    table <- tables %>% .[[i]] %>% html_table(header = FALSE, trim=TRUE)
-    #Check if the current table has bad formatting
+    table <- tryCatch({
+      tables %>% .[[i]] %>% html_table(header = FALSE, trim=TRUE)
+    }, error = function(err){
+      if(debug) print(err)
+      NULL
+    })
+    
+    if(is.null(tables[[i]]) || length(tables[[i]]) == 0) next
+    
+    #Does current table have bad formatting?
     if(str_contains(table[['X1']], "\n\t") && !str_contains(table[['X1']], "Download")){
-      #Correct formatting
+      #Correct formatting using regex (sorry)
       table_str <- str_replace_all(table[['X1']], "[^\\S ]+[ ]+[^\\S ]+", "***")
       table_list <- strsplit(table_str, "\\*\\*\\*")
       #Search through table rows for matches (i.e. filter)
-      if(!is.null(table_list) && length(table_list) > 0){
+      if(!is.null(table_list) && length(table_list) > 0 && str_contains(table_list, x1)){
         for(j in 1:length(table_list)){
-          if(table_list[[j]][[1]] == x1){
+          if(str_contains(table_list[[j]][[1]], x1)){
             ret <- paste(ret, table_list[[j]][[2]], sep = ", ")
           }  
         }
@@ -100,35 +108,47 @@ all_table_parse <- function(page, x1) {
           return(substring(ret, first = 3))
         }
       }
-      else if(debug) print("TABLE IS NULL")
+      else{
+        next
+      }
+    }
+    
+    #Current table did not have bad formatting, just search
+    if(!is.null(table) && length(table) > 1){
+      for(k in 1:length(table)){
+        if(str_contains(table[['X1']][k], x1)){
+          return (table[['X2']][k])
+        }
+      }  
     }
   }
-  #Remove the first ", " from the string and return
-  return(substring(ret, first = 3))
+  return(NULL)
 }
 
 # grab the project ids from the file specified earlier in the file
 proj_ids <- read_lines(filename, skip_empty_rows = TRUE)
 
 # create a dataframe to hold the scraped data.
-data <- data.frame(matrix(ncol = 15, nrow = 0))
+data <- data.frame(matrix(ncol = 18, nrow = 0))
 names(data) <- c(
-  "Project Code",
+  "Project ID",
   "Country",
   "Project Title",
-  "Objective",    
   "Description",  
   "Commitment in U.A.",
   "Status",
   "Start Date",
-  "Completion Date",
+  "Closing Date",
   "Project Duration",
   "Source of Financing",
+  "Sovereign",
   "Sector",
   "DAC Sector Code",
   "DAC5 Code",
-                  #"DAC5 Description",
-  "Sovereign"
+  "DAC5 Description",
+  "Detailed Description",
+  "Contact Name",
+  "Contact Email"
 )
 
 
@@ -148,13 +168,11 @@ for(id in proj_ids) {
   }
   # if the loop ended because of the loop limiter skip to next id
   if(length(page) == 0) next
-
+  
   ##############################
   # parse the web page results #
   ##############################
   # pull info from main web page table
-  funding <- all_table_parse(page, "Funding")
-  
   commitment <- main_table_parse(page, "Commitment")
   commitment <- if (str_length(commitment) > 5) substring(commitment, 5) else commitment
   status <- main_table_parse(page, "Status")
@@ -164,11 +182,21 @@ for(id in proj_ids) {
                              as.Date(approval_date, format="%d %b %Y"),
                              units="days")
                     / 365.25, 2)
+  duration <- if(!is.null(duration)) duration else "N/A"
+  print(duration)
+  sov <- main_table_parse(page, "Sovereign / Non-Sovereign")
+
   sector <- main_table_parse(page, "Sector")
   dac <- main_table_parse(page, "DAC Sector Code")
   dac5 = substring(dac, 1,3)
-  sov <- main_table_parse(page, "Sovereign / Non-Sovereign")
-  #print(paste("funding: ", funding))
+  dac5_desc = "TODO"
+  dac5_desc_detailed = "TODO"
+  
+  contact_name <- all_table_parse(page, "Name")
+  contact_name <- if (!is.null(contact_name)) str_to_title(contact_name) else "N/A"
+  contact_email <- all_table_parse(page, "Email")
+  contact_email <- if(!is.null(contact_email)) contact_email else "N/A"
+  funding <- all_table_parse(page, "Funding")
   
   #Get country & project names
   country_plus_project <- str_split(page %>% html_node("h2") %>% html_text2(), " - ")[[1]]
@@ -176,8 +204,7 @@ for(id in proj_ids) {
   project <- if(is.na(country_plus_project[2])) "N/A" else country_plus_project[2]
   
   # by default set to n/a will replace later if we find what we're after
-  desc <- "N/A"
-  obj <- "N/A"
+  desc <- ""
   # pull out all the divs and put them in a vector like object
   divs <- page %>% html_nodes("div")
   # iterate through the list looking for information
@@ -186,14 +213,13 @@ for(id in proj_ids) {
       desc <- div %>% html_node("p") %>% html_text()
     }
     if(html_text(html_node(div,"h3")) %in% "Project Objectives") {
-      obj <- div %>% html_node("p") %>% html_text()
+      desc <- paste(div %>% html_node("p") %>% html_text(), desc, sep="\n\n")
     }
   }
-	
-  if(debug) print(paste(id, country, project, commitment, status, approval_date, completion_date, duration, funding, sector, dac, dac5, sov, sep="; "))
   
+  if(debug) print(paste(id, country, project, commitment, status, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
   # add parsed data into the main data frame
-  data[nrow(data) + 1,] <- c(id, country, project, obj, desc, commitment, status, approval_date, completion_date, duration, funding, sector, dac, dac5, sov)
+  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, status, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
   
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
