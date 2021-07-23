@@ -31,7 +31,7 @@ library(tidyverse)
 library(xml2)
 
 # CONSTANTS #
-DEBUG <- TRUE
+DEBUG <- FALSE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 PROJECTS_FILE <- if(DEBUG) "afdb-short.txt" else "afdb-ids.txt"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
@@ -128,14 +128,19 @@ main_table_parse <- function(page, x1) {
 }
 
 #Looks up the DAC or DAC5 code in the DAC-CRS-CODES excel file
-get_dac5_desc <- function(dac_code){
-  print(dac_lookup_df)
-  return("TODO")
+get_dac5_desc <- function(code){
+  if(is.null(code) || code == "N/A") return("N/A")
+  code <- strtoi(code)
+  desc <- if(code < 1000)
+            dac_df$DESCRIPTION[which(dac_df$`DAC 5 CODE` == code)] 
+          else
+            dac_df$DESCRIPTION[which(dac_df$`concatenate` == code)]
+  return(if(!is.null(desc)) desc else "N/A")
 }
 
 # MAIN #
 proj_ids <- read_lines(PROJECTS_FILE, skip_empty_rows = TRUE)
-dac_lookup_df <- read_excel(DAC_FILE, sheet=12, skip=2)
+dac_df <- read_excel(DAC_FILE, sheet=12, skip=2)
 
 # create a dataframe to hold the scraped data.
 data <- data.frame(matrix(ncol = 17, nrow = 0))
@@ -201,6 +206,7 @@ for(id in proj_ids) {
 
   sector <- main_table_parse(page, "Sector")
   dac <- main_table_parse(page, "DAC Sector Code")
+  if(nchar(dac) < 3) dac <- "N/A"
   dac5 = substring(dac, 1,3)
   dac5_desc <- get_dac5_desc(dac5)
   dac5_desc_detailed <- get_dac5_desc(dac)
