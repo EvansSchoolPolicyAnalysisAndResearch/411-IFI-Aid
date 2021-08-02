@@ -30,11 +30,12 @@ library(sjmisc)
 library(tidyverse)
 library(xml2)
 
-# CONSTANTS #
+# CONSTANTS AND OUTPUT #
 DEBUG <- FALSE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 PROJECTS_FILE <- if(DEBUG) "afdb-short.txt" else "afdb-ids.txt"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
+sink("output.txt", split=TRUE, append = FALSE)
 DAC_FILE <- "../DAC-CRS-CODES.xls"
 
 # FUNCTIONS #
