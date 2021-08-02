@@ -31,7 +31,7 @@ library(tidyverse)
 library(xml2)
 
 # CONSTANTS AND OUTPUT #
-DEBUG <- FALSE
+DEBUG <- TRUE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 PROJECTS_FILE <- if(DEBUG) "afdb-short.txt" else "afdb-ids.txt"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
@@ -144,14 +144,14 @@ proj_ids <- read_lines(PROJECTS_FILE, skip_empty_rows = TRUE)
 dac_df <- read_excel(DAC_FILE, sheet=12, skip=2)
 
 # create a dataframe to hold the scraped data.
-data <- data.frame(matrix(ncol = 17, nrow = 0))
+data <- data.frame(matrix(ncol = 18, nrow = 0))
 names(data) <- c(
   "Project ID",
   "Country",
   "Project Title",
   "Description",  
   "Commitment in U.A.",
-  #"Status",
+  "Status",
   "Start Date",
   "Closing Date",
   "Project Duration",
@@ -192,7 +192,7 @@ for(id in proj_ids) {
   if(status != "Implementation" && status != "Approved"){
     if(DEBUG) print(paste("Skipping inactive project:", id))
     next
-  } 
+  }
   
   commitment <- main_table_parse(page, "Commitment")
   commitment <- if (str_length(commitment) > 5) substring(commitment, 5) else commitment
@@ -229,7 +229,9 @@ for(id in proj_ids) {
     project <- country
     country <- "N/A"
   }
-
+  #Reassign country to the (standardized) country name from the table
+  country <- all_table_parse(page, "Country")
+  
   # by default set to n/a will replace later if we find what we're after
   desc <- ""
   # pull out all the divs and put them in a vector like object
@@ -244,9 +246,9 @@ for(id in proj_ids) {
     }
   }
   
-  if(DEBUG) print(paste(id, country, project, commitment, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
+  if(DEBUG) print(paste(id, country, project, commitment, approval_date, completion_date, duration, funding, status, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
   # add parsed data into the main data frame
-  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, approval_date, completion_date, duration, funding, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
+  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, approval_date, completion_date, duration, funding, status, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
   
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
