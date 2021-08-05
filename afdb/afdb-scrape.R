@@ -23,20 +23,23 @@
 # install.packages("magrittr")
 # install.packages("rvest")
 # install.packages("sjmisc")
+#install.packages("R.utils",repos = "http://cran.us.r-project.org")
 library(magrittr)
 library(readxl)
+library(R.utils)
 library(rvest)
 library(sjmisc)
 library(tidyverse)
 library(xml2)
 
 # CONSTANTS AND OUTPUT #
-DEBUG <- TRUE
+DEBUG <- FALSE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
-PROJECTS_FILE <- if(DEBUG) "afdb-short.txt" else "afdb-ids.txt"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
-sink("output.txt", split=TRUE, append = FALSE)
 DAC_FILE <- "../DAC-CRS-CODES.xls"
+AFDB_SPREADSHEET <- if(DEBUG) "afdb-ids-short.xlsx" else "afdb-ids.xlsx"
+AFDB_SPREADSHEET_URL <- "https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list"
+sink("output.txt", split=TRUE, append = FALSE)
 
 # FUNCTIONS #
 #Scrape
@@ -140,7 +143,13 @@ get_dac5_desc <- function(code){
 }
 
 # MAIN #
-proj_ids <- read_lines(PROJECTS_FILE, skip_empty_rows = TRUE)
+
+#If real run, download the projects file from the AFDB website 
+if(!DEBUG) download.file(AFDB_SPREADSHEET_URL, AFDB_SPREADSHEET, method="curl") 
+proj_ids <- read_excel(AFDB_SPREADSHEET, skip=0)
+#Drop projects that aren't in progress
+proj_ids <- proj_ids[proj_ids$Status == "Approved" || proj_ids$Status == "Implementation", ]
+#Read the DAC description excel file
 dac_df <- read_excel(DAC_FILE, sheet=12, skip=2)
 
 # create a dataframe to hold the scraped data.
@@ -168,7 +177,9 @@ names(data) <- c(
 
 
 # for each id in provided file
-for(id in proj_ids) {
+for(id in proj_ids$`Project Code`) {
+  if(is.null(id) || is.na(id)) next
+  
   start <- Sys.time()
   "scraping project" %>% paste(id, "\n", sep = " ") %>% cat()
   page  <- NULL
@@ -183,14 +194,14 @@ for(id in proj_ids) {
   }
   # if the loop ended because of the loop limiter skip to next id
   if(length(page) == 0) next
-  
+  processing_time <- Sys.time()
   ##############################
   # parse the web page results #
   ##############################
   # pull info from main web page table, only look at active projects
   status <- main_table_parse(page, "Status")
-  if(status != "Implementation" && status != "Approved"){
-    if(DEBUG) print(paste("Skipping inactive project:", id))
+  if(status != "Approved" && status != "Implementation"){
+    print(paste("Skipping project:", id, "with status:", status))
     next
   }
   
@@ -253,6 +264,7 @@ for(id in proj_ids) {
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
   # Respect the robots.txt - only do a request every 10 seconds
+  printf("Download time: %.2f // Processing time: %.2fs // Sleep time: %.2fs\n", processing_time - start, elapsed - processing_time + start, 10 - elapsed)
   if(elapsed < 10) {
     Sys.sleep(10-elapsed)
   }
