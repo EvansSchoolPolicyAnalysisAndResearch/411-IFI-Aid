@@ -12,9 +12,9 @@
 # database of specified information                                            #
 #                                                                              #
 #                                                                              #
-# inputs: a file containing a list of relevant project numbers                 #
+# inputs: none                                                                 #
 # outputs: a csv file containing project numbers, description, planned         #
-#          completion date, and dac sector codes                               #
+#          completion date, dac sector codes, etc                              #
 ################################################################################
 
 # IMPORTS #
@@ -33,7 +33,7 @@ library(tidyverse)
 library(xml2)
 
 # CONSTANTS AND OUTPUT #
-DEBUG <- FALSE
+DEBUG <- TRUE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
 DAC_FILE <- "../DAC-CRS-CODES.xls"
@@ -147,8 +147,9 @@ get_dac5_desc <- function(code){
 #If real run, download the projects file from the AFDB website 
 if(!DEBUG) download.file(AFDB_SPREADSHEET_URL, AFDB_SPREADSHEET, method="curl") 
 proj_ids <- read_excel(AFDB_SPREADSHEET, skip=0)
-#Drop projects that aren't in progress
-proj_ids <- proj_ids[proj_ids$Status == "Approved" || proj_ids$Status == "Implementation", ]
+#Drop projects that aren't in progress. Must be done in 2 steps
+proj_ids <- proj_ids[(proj_ids$Status == "Approved" | proj_ids$Status == "Implementation"), ]
+proj_ids <- proj_ids[!is.na(proj_ids$`Project Code`), ]
 #Read the DAC description excel file
 dac_df <- read_excel(DAC_FILE, sheet=12, skip=2)
 
@@ -278,4 +279,5 @@ while(!written && count < 20){
 	count <- count + 1
 }
 
+closeAllConnections()
 print("All done!")
