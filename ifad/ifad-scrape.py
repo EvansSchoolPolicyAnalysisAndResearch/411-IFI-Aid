@@ -25,7 +25,7 @@ import time
 import unidecode
 from bs4 import BeautifulSoup
 
-DEBUG = True
+DEBUG = False
 BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=search'
 TABS = [1,2,3]
 PROJECT_URL = 'https://www.ifad.int/en/web/operations/-/project/'
@@ -39,18 +39,15 @@ IFI_COUNTRIES = ['Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Came
 'Tanzania', 'United Republic of Tanzania', 'Togo','Uganda','Zambia','Zimbabwe']
 
 def get_html(url):
-    soup = None
     attempts = 0
-    while(soup == None and attempts < 20):
+    while(attempts < 20):
         try:
             attempts += 1
             response = requests.get(url)
             clean_html = html.unescape(response.text)
-            soup = BeautifulSoup(clean_html, 'html.parser')
-            return soup
+            return BeautifulSoup(clean_html, 'html.parser')
         except (Exception) as e:
             logging.info('Failed to download webpage, trying again')
-            soup = None
             time.sleep(5)
     return None
 
@@ -75,6 +72,7 @@ def get_proj_ids(url, tabs):
         projects.extend(relevant_ids)
     return projects
 
+#Manual scraping method that finds param:to_find in param:soup and places its value in param:data
 def manual_scrape(soup, data, to_find):
     try:
         ret = soup.find('dt', text=re.compile(r"\s*" + to_find + "\s*")).findNext().text.strip()
@@ -86,33 +84,26 @@ def manual_scrape(soup, data, to_find):
 
 #MAIN
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-projects = get_proj_ids(BASE_URL, TABS) 
-#projects = ['2000003362', '2000001936']
+projects = get_proj_ids(BASE_URL, TABS) if not DEBUG else ['2000003362', '2000001936']
 scraped_data = []
 
-for project in projects:
+for project_id in projects:
     data = {}
-    url = PROJECT_URL + project
+    url = PROJECT_URL + project_id
     logging.info('Scraping %s', url)
     soup = get_html(url)
     if soup == None:
         next
-
-    data['Project Name'] = soup.select("h1[class!=\"hide-accessible\"]")[0].text
-    data['Status'] = soup.select('dd.project-status > span')[0].text[8:]
+    data['Project ID'] = project_id
     manual_scrape(soup, data, 'Country')
+    data['Project Title'] = soup.select("h1[class!=\"hide-accessible\"]")[0].text
+    manual_scrape(soup, data, 'Total Project Cost')
+    data['Status'] = soup.select('dd.project-status > span')[0].text[8:]
     manual_scrape(soup, data, 'Approval Date')
     manual_scrape(soup, data, 'Duration')
-    manual_scrape(soup, data, 'Sector')
-    manual_scrape(soup, data, 'Total Project Cost')
     manual_scrape(soup, data, 'IFAD Financing')
     manual_scrape(soup, data, 'Financing Gap')
-    manual_scrape(soup, data, 'Financing terms')
-    contact_name = manual_scrape(soup, data, 'Project Contact')
-    if contact_name == None or soup.find(text=contact_name) == None:
-        data['Contact Email'] = ""
-    else:
-        data['Contact Email'] = soup.find(text=contact_name).parent['href'][7:]    
+
     #Handle multiple international funders
     int_funders = ''
     f = soup.find(text='Co-financiers (International)')
@@ -135,14 +126,32 @@ for project in projects:
     if len(dom_funders) > 0:
         data['Co-financiers (Domestic)'] = dom_funders
 
-    for key, value in data.items():
+    manual_scrape(soup, data, 'Financing terms')
+    manual_scrape(soup, data, 'Sector')
+    contact_name = manual_scrape(soup, data, 'Project Contact')
+    if contact_name != None and soup.find(text=contact_name) != None:
+        data['Contact Email'] = soup.find(text=contact_name).parent['href'][7:]
+
+    for key in data.keys():
+        #Remove special characters, but not from country names!
         if key != 'Country':
-            data[key] = unidecode.unidecode(data[key].strip()).strip() #Remove special characters, but not from country names!
+            data[key] = unidecode.unidecode(data[key].strip()).strip() 
+    
     [logging.info('\t%s: %s', key, value) for key, value in data.items()] #Print the scraped data
     scraped_data.append(data)
 
 #Convert into an excel file
 logging.info("Creating excel file '%s' with scraped data", OUTPUT_FILE)
 df = pd.DataFrame.from_records(scraped_data)
-df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
+
+#Don't fail because the output file was open..
+while True:
+    try:
+        out = open(OUTPUT_FILE, 'w')
+        df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
+        break
+    except Exception as e:
+        logging.warn("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the ifad folder.")
+        time.sleep(5)
+
 logging.info('All done!')
