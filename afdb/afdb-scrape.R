@@ -33,7 +33,7 @@ library(tidyverse)
 library(xml2)
 
 # CONSTANTS AND OUTPUT #
-DEBUG <- TRUE
+DEBUG <- FALSE
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
 DAC_FILE <- "../DAC-CRS-CODES.xls"
@@ -258,16 +258,16 @@ for(id in proj_ids$`Project Code`) {
     }
   }
   
-  if(DEBUG) print(paste(id, country, project, commitment, approval_date, completion_date, duration, funding, status, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
+  if(DEBUG) print(paste(id, country, project, commitment, status, approval_date, completion_date, duration, funding, sov, sector, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email, sep="; "))
   # add parsed data into the main data frame
-  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, approval_date, completion_date, duration, funding, status, sector, sov, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
-  
+  data[nrow(data) + 1,] <- c(id, country, project, desc, commitment, status, approval_date, completion_date, duration, funding, sov, sector, dac, dac5, dac5_desc, dac5_desc_detailed, contact_name, contact_email)
+
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
   # Respect the robots.txt - only do a request every 10 seconds
   printf("Download time: %.2f // Processing time: %.2fs // Sleep time: %.2fs\n", processing_time - start, elapsed - processing_time + start, 10 - elapsed)
-  if(elapsed < 10) {
-    Sys.sleep(10-elapsed)
+  if(elapsed < 5) {
+    Sys.sleep(5 - elapsed)
   }
 }
 
