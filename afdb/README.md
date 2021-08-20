@@ -4,10 +4,11 @@ afdb_scrape.R
 `afdb_scrape.R` scrapes the AFDB Project pages. It depends on the following
 libraries:
 
-- `tidyverse`,
-- `magrittr`,
-- `xml2`, and
-- `rvest`
+- `readxl`,
+- `rvest`,
+- `R.utils`,
+- `sjmisc`, and
+- `xml2`
 
 Please install them before running the script.
 
