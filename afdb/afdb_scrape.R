@@ -29,8 +29,6 @@ library(R.utils)
 library(sjmisc)
 library(xml2)
 
-
-
 # CONSTANTS AND OUTPUT #
 DEBUG <- FALSE
 RATE_LIMIT <- 10
