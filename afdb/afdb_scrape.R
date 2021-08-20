@@ -18,22 +18,22 @@
 ################################################################################
 
 # IMPORTS #
-# install.packages("tidyverse")
-# install.packages("xml2")
-# install.packages("magrittr")
+# install.packages("readxl")
 # install.packages("rvest")
-# install.packages("sjmisc")
 #install.packages("R.utils",repos = "http://cran.us.r-project.org")
-library(magrittr)
+# install.packages("sjmisc")
+# install.packages("xml2")
 library(readxl)
-library(R.utils)
 library(rvest)
+library(R.utils)
 library(sjmisc)
-library(tidyverse)
 library(xml2)
+
+
 
 # CONSTANTS AND OUTPUT #
 DEBUG <- FALSE
+RATE_LIMIT <- 10
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
 DAC_FILE <- "../DAC-CRS-CODES.xls"
@@ -265,9 +265,9 @@ for(id in proj_ids$`Project Code`) {
   # calculate elapsed time for request
   elapsed <- Sys.time() - start
   # Respect the robots.txt - only do a request every 10 seconds
-  printf("Download time: %.2f // Processing time: %.2fs // Sleep time: %.2fs\n", processing_time - start, elapsed - processing_time + start, 10 - elapsed)
-  if(elapsed < 5) {
-    Sys.sleep(5 - elapsed)
+  printf("Download time: %.2f // Processing time: %.2fs // Sleep time: %.2fs\n", processing_time - start, elapsed - processing_time + start, RATE_LIMIT - elapsed)
+  if(elapsed < RATE_LIMIT) {
+    Sys.sleep(RATE_LIMIT - elapsed)
   }
 }
 
