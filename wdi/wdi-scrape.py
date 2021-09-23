@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-
-# wdi-scrape.py
-
 """	Download data from the World Bank's World Development Indicator api."""
 
 __copyright__ = """
 Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
 """
-
 __license__ = """
 This project is licensed under the 3-Clause BSD License. Please see the 
 license.txt file for more information.
@@ -15,57 +11,47 @@ license.txt file for more information.
 
 import requests
 import csv
-import argparse
 import sys
 
-if __name__ == "__main__":
-	pars = argparse.ArgumentParser(
-		description = __doc__, 
-		epilog = __copyright__ + __license__,
-		formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-	pars.add_argument(
-		"-c", "--countries",
-		help = "path/filename for a csv with ISO codes and country names",
-		type = argparse.FileType('r'),
-		default = "country-list.csv",
-		dest = "ctry")
-	pars.add_argument(
-		"-i", "--indicators",
-		help = "path/filename for a list of wdi indicators",
-		type = argparse.FileType('r'),
-		default = "wdi-inds.csv",
-		dest = "ind")
-	pars.add_argument(
-		"-o", "--output",
-		help = "path/filename for csv output file",
-		type = argparse.FileType('w'),
-		default = sys.stdout,
-		metavar = "OUTPUT",
-		dest = "out")
-	pars.add_argument("-y", "--years",
-		nargs = "+",
-		help = "years for which data should be downloaded e.g. 2009",
-		metavar = "YEARS",
-		dest = "yrs")
-	args = pars.parse_args()
+#Constants
+DEBUG = True
+API_BASE = 'http://api.worldbank.org/v2/country/{ctry}/indicator/{ind}?date={yr}&format=json'
+YEARS = ['2009', '2010']
+INDICATOR_CSV = './wdi-inds.csv'
+OUTPUT_CSV = '../data/wdi-out-test.csv' if DEBUG else '../data/wdi-out.csv'
+ISO_CODES = {
+    'AGO': 'Angola', 'BEN': 'Benin', 'BWA': 'Botswana','BFA': 'Burkina Faso',
+    'BDI': 'Burundi','CMR': 'Cameroon','CPV': 'Cape Verde','CAF': 'Central African Republic',
+    'TCD': 'Chad','COM': 'Comoros','COD': 'DRC','COG': 'Republic of Congo',
+    'CIV': "Cote d'Ivoire",'GNQ': 'Equatorial Guinea','ERI': 'Eritrea','SWZ': 'Eswatini',
+    'ETH': 'Ethiopia','GAB': 'Gabon','GMB': 'Gambia','GHA': 'Ghana','GIN': 'Guinea',
+    'GNB': 'Guinea-Bissau','KEN': 'Kenya','LSO': 'Lesotho','LBR': 'Liberia','MDG': 'Madagascar',
+    'MWI': 'Malawi','MLI': 'Mali','MRT': 'Mauritania','MUS': 'Mauritius','MOZ': 'Mozambique',
+    'NAM': 'Namibia','NER': 'Niger','NGA': 'Nigeria','RWA': 'Rwanda',
+    'STP': 'Sao Tome and Principe','SEN': 'Senegal','SYC': 'Seychelles','SLE': 'Sierra Leone',
+    'ZAF': 'South Africa','SSD': 'South Sudan','TZA': 'Tanzania','TGO': 'Togo',
+    'UGA': 'Uganda','ZMB': 'Zambia','ZWE': 'Zimbabwe'
+}
+#Use a shorter list of countries if debugging
+ISO_CODES = {'AGO':'Angola', 'ETH': 'Ethiopia', 'SSD': 'South Sudan'} if DEBUG else ISO_CODES
 
-	API_BASE = "http://api.worldbank.org/v2/country/{ctry}/indicator/{ind}?date={yr}&format=json"
+#Get dictionary of indicators from csv file
+inds = {r["code"] : r["name"] for r in csv.DictReader(open(INDICATOR_CSV)) if r != ""}
+#Initialize output data dictionary in the following format for all countries: 
+#   "{ISO CODE: {'iso': ISO CODE, 'country': COUNTRY NAME}}"
+data = {key: {'iso': key, 'country': value} for key, value in ISO_CODES.items()}
+fields = {"iso": True, "country": True}
 
-	# load the input data from disk
-	data = {r["iso"] : {"iso" : r["iso"], "country": r["name"], } 
-		for r in csv.DictReader(args.ctry) if r != ""}
-	ctry = ";".join(data.keys())
-	inds = {r["code"] : r["name"] for r in csv.DictReader(args.ind) if r != ""}
-	fields = {"iso": True, "country": True}
-	for i, name in inds.items():
-		for yr in args.yrs:
-			resp = requests.get(
-				API_BASE.format(ctry = ctry, ind = i, yr = yr)).json()[1]
-			for c in resp:
-				field = name + "_" + c["date"]
-				fields[field] = True
-				data[c["countryiso3code"]][field] = c['value']
-	fields = fields.keys()
-	w = csv.DictWriter(args.out, fields, extrasaction = "ignore")
-	w.writeheader()
-	for k in data: w.writerow(data[k])
+#Request all country data for each indicator and year
+for ind, name in inds.items():
+    for yr in YEARS:
+        resp = requests.get(API_BASE.format(ctry = ';'.join(ISO_CODES.keys()), ind = ind, yr = yr)).json()[1]
+        for c in resp:
+            field = name + "_" + c["date"]
+            fields[field] = True
+            data[c["countryiso3code"]][field] = c['value']
+fields = fields.keys()
+w = csv.DictWriter(open(OUTPUT_CSV, 'w+', newline=''), fields, extrasaction = "ignore")
+print(data)
+w.writeheader()
+for k in data: w.writerow(data[k])
