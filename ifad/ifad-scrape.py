@@ -1,5 +1,5 @@
 ################################################################################
-# ifad/ifad-scrape.py                                                           #
+# ifad/ifad-scrape.py                                                          #
 #                                                                              #
 # Copyright 2021 Evans Policy Analysis and Research Group (EPAR).              #
 #                                                                              #
@@ -147,7 +147,6 @@ df = pd.DataFrame.from_records(scraped_data)
 #Don't fail because the output file was open..
 while True:
     try:
-        out = open(OUTPUT_FILE, 'w')
         df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
         break
     except Exception as e:
