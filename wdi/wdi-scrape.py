@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """	Download data from the World Bank's World Development Indicator api."""
 
+import requests
+import csv
+import sys
+
 __copyright__ = """
 Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
 """
@@ -8,11 +12,6 @@ __license__ = """
 This project is licensed under the 3-Clause BSD License. Please see the 
 license.txt file for more information.
 """
-
-import requests
-import csv
-import sys
-
 #Constants
 DEBUG = True
 API_BASE = 'http://api.worldbank.org/v2/country/{ctry}/indicator/{ind}?date={yr}&format=json'
