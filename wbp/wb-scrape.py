@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""	Download data from the World Bank's Project API
+""" Download data from the World Bank's Project API
 """
 __copyright__ = """
 Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
@@ -13,38 +13,67 @@ import pandas as pd
 import requests
 
 #Constants
-DEBUG = False
+DEBUG = True
 PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
-PROJECT_LIST = './all.xls'
-FILTERED_PROJECT_LIST = './filtered.xlsx'
-PROJECT_API	=	"http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
-DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 
-    'Grant Amount','Environmental Assessment Category','Environmental and Social Risk']
-RENAME_COLUMNS = {'Project Status':'Status', 'Project Development Objective ':'Description', 
-    'Project Closing Date':'Closing Date','Total IDA and IBRD Commitment':'Commitment Amount (USD)'}
+CWD = "./data/"
+PROJECT_LIST = CWD + 'wbp-all.xls'
+FILTERED_PROJECT_LIST = CWD + 'wbp-filtered.xlsx'
+PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
+DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
+    'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
+RENAME_COLUMNS = {'Project Status':'Status', 'Project Development Objective ':'Description', 'Project Closing Date':'Closing Date'}
 
 #Key = WB country name format, Value = IFI project country name format
-IFI_COUNTRIES = { 'Republic of Angola': 'Angola','Republic of Benin' : 'Benin','Republic of Botswana' : 'Botswana',
-'Burkina Faso' : 'Burkina Faso','Republic of Burundi' : 'Burundi','Republic of Cameroon' : 'Cameroon',
-'Republic of Cabo Verde' : 'Cabo Verde','Central African Republic' : 'Central African Republic',
-'Republic of Chad' : 'Chad','Union of the Comoros' : 'Comoros',
-"Republic of Cote d'Ivoire" : "Côte d'Ivoire",'Democratic Republic of the Congo' : 'Democratic Republic of the Congo',
-'Republic of Equatorial Guinea' : 'Equatorial Guinea','State of Eritrea' : 'Eritrea',
-'Kingdom of Eswatini' : 'Eswatini','Federal Democratic Republic of Ethiopia' : 'Ethiopia',
-'Gabonese Republic' : 'Gabon','Republic of The Gambia' : 'Gambia','Republic of Ghana' :  'Ghana','Republic of Guinea' : 'Guinea',
-'Republic of Guinea-Bissau' : 'Guinea-Bissau','Republic of Kenya' : 'Kenya',
-'Kingdom of Lesotho' : 'Lesotho','Republic of Liberia' : 'Liberia',
-'Republic of Madagascar' : 'Madagascar','Republic of Malawi' : 'Malawi',
-'Republic of Mali' : 'Mali','Islamic Republic of Mauritania' : 'Mauritania',
-'Republic of Mauritius' : 'Mauritius','Republic of Mozambique' : 'Mozambique',
-'Republic of Namibia' : 'Namibia','Republic of Niger' : 'Niger',
-'Federal Republic of Nigeria' : 'Nigeria','Republic of Congo' : 'Republic of Congo',
-'Republic of Rwanda' : 'Rwanda','Democratic Republic of Sao Tome and Pricipe' : 'Sao Tome and Principe',
-'Republic of Senegal' : 'Senegal','Republic of Seychelles' : 'Seychelles',
-'Republic of Sierra Leone' : 'Sierra Leone','Republic of South Africa' : 'South Africa',
-'Republic of South Sudan' : 'South Sudan','United Republic of Tanzania' : 'Tanzania',
-'Republic of Togo' : 'Togo','Republic of Uganda' : 'Uganda',
-'Republic of Zambia' : 'Zambia','Republic of Zimbabwe' : 'Zimbabwe'}
+IFI_COUNTRIES = { 
+    'Republic of Angola': 'Angola',
+    'Republic of Benin' : 'Benin',
+    'Republic of Botswana' : 'Botswana',
+    'Burkina Faso' : 'Burkina Faso',
+    'Republic of Burundi' : 'Burundi',
+    'Republic of Cameroon' : 'Cameroon',
+    'Republic of Cabo Verde' : 'Cabo Verde',
+    'Central African Republic' : 'Central African Republic',
+    'Republic of Chad' : 'Chad',
+    'Union of the Comoros' : 'Comoros',
+    "Republic of Cote d'Ivoire" : "Côte d'Ivoire",
+    'Democratic Republic of the Congo' : 'Democratic Republic of the Congo',
+    'Republic of Equatorial Guinea' : 'Equatorial Guinea',
+    'State of Eritrea' : 'Eritrea',
+    'Kingdom of Eswatini' : 'Eswatini',
+    'Federal Democratic Republic of Ethiopia' : 'Ethiopia',
+    'Gabonese Republic' : 'Gabon',
+    'Republic of The Gambia' : 'Gambia',
+    'Republic of Ghana' :  'Ghana',
+    'Republic of Guinea' : 'Guinea',
+    'Republic of Guinea-Bissau' : 'Guinea-Bissau',
+    'Republic of Kenya' : 'Kenya',
+    'Kingdom of Lesotho' : 'Lesotho',
+    'Republic of Liberia' : 'Liberia',
+    'Republic of Madagascar' : 'Madagascar',
+    'Republic of Malawi' : 'Malawi',
+    'Republic of Mali' : 'Mali',
+    'Islamic Republic of Mauritania' : 'Mauritania',
+    'Republic of Mauritius' : 'Mauritius',
+    'Republic of Mozambique' : 'Mozambique',
+    'Republic of Namibia' : 'Namibia',
+    'Republic of Niger' : 'Niger',
+    'Federal Republic of Nigeria' : 'Nigeria',
+    'Republic of Congo' : 'Republic of Congo',
+    'Republic of Rwanda' : 'Rwanda',
+    'Democratic Republic of Sao Tome and Pricipe' : 'Sao Tome and Principe',
+    'Republic of Senegal' : 'Senegal',
+    'Republic of Seychelles' : 'Seychelles',
+    'Republic of Sierra Leone' : 'Sierra Leone',
+    'Republic of South Africa' : 'South Africa',
+    'Republic of South Sudan' : 'South Sudan',
+    'United Republic of Tanzania' : 'Tanzania',
+    'Republic of Togo' : 'Togo',
+    'Republic of Uganda' : 'Uganda',
+    'Republic of Zambia' : 'Zambia',
+    'Republic of Zimbabwe' : 'Zimbabwe',
+}
+
+MULTI_REGION = ['World', 'Multi-Region']
 
 if not DEBUG:
     #Download the excel spreadsheet from the world bank website
@@ -59,16 +88,25 @@ if not DEBUG:
 print("Filtering to active projects in IFI countries")
 #Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST, header=1)
-#Drop unneeded variables and rename others
+#Commitment amount = IDA + IBRD + grant amounts. (Do this before dropping the Total & Grant columns)
+df['Commitment Amount (USD)'] = df['Total IDA and IBRD Commitment'] + df['Grant Amount']
+#Drop unneeded indicators and rename others
 df.drop(DROP_COLUMNS, axis=1, inplace=True)
 df.rename(columns=RENAME_COLUMNS, inplace=True)
 #Drop non-IFI countries
-df = df[df['Country'].isin(IFI_COUNTRIES.keys())]
+df = df[df['Country'].isin(list(IFI_COUNTRIES.keys()) + MULTI_REGION)]
 #Standardize country names to IFI project format
 df = df.replace(IFI_COUNTRIES)
-#Drop inactive projects (possible states: Active, Pipeline, Dropped, Closed)
-#***TODO: discuss whether or not pipeline should be included
+#Drop inactive projects (possible states: Active*, Pipeline*, Dropped, Closed)
 df = df[df['Status'].isin(['Active', 'Pipeline'])]
+
+#Drop world and multi-regional projects without an IFI country name in the description
+# Get multiregion projects
+multiregion = df[((df['Country'] == 'World') | (df['Country'] == 'Multi-Regional'))]
+#Drop multiregion projects that don't have any IFI countries in the description
+to_drop = multiregion[~multiregion['Description'].fillna(value="").str.contains('|'.join(list(IFI_COUNTRIES.values())))]
+df = pd.concat([df, to_drop, to_drop]).drop_duplicates(keep=False)
+print("Keeping " + str(len(multiregion.index) - len(to_drop.index)) + " multi-region/world projects related to IFI countries (out of " + str(len(multiregion.index)) + ")")
 
 #Calculate duration
 df['Board Approval Date'] = pd.to_datetime(df['Board Approval Date'], infer_datetime_format=True)
@@ -80,6 +118,7 @@ df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Board 
 df['Board Approval Date'] = df['Board Approval Date'].dt.date
 df['Closing Date'] = df['Closing Date'].dt.date
 
+#Write to output file
 print("Writing the filtered project list to " + FILTERED_PROJECT_LIST)
 df.to_excel(open(FILTERED_PROJECT_LIST, 'wb'), index=False, na_rep='')
 print("Done")
