@@ -13,11 +13,11 @@ import pandas as pd
 import requests
 
 #Constants
-DEBUG = True
+DEBUG = False
 PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
 CWD = "./data/"
-PROJECT_LIST = CWD + 'wbp-all.xls'
-FILTERED_PROJECT_LIST = CWD + 'wbp-filtered.xlsx'
+PROJECT_LIST = CWD + 'wbp_all.xls'
+FILTERED_PROJECT_LIST = CWD + 'wbp_filtered.xlsx'
 PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
     'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']

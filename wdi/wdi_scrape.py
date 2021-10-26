@@ -13,11 +13,11 @@ This project is licensed under the 3-Clause BSD License. Please see the
 license.txt file for more information.
 """
 #Constants
-DEBUG = True
+DEBUG = False
 API_BASE = 'http://api.worldbank.org/v2/country/{ctry}/indicator/{ind}?date={yr}&format=json'
 YEARS = ['2009', '2010']
-INDICATOR_CSV = './wdi-inds.csv'
-OUTPUT_CSV = '../data/wdi-out-test.csv' if DEBUG else '../data/wdi-out.csv'
+INDICATOR_CSV = './wdi/wdi_inds.csv'
+OUTPUT_CSV = './data/wdi_out_test.csv' if DEBUG else './data/wdi_out.csv'
 ISO_CODES = {
     'AGO': 'Angola', 'BEN': 'Benin', 'BWA': 'Botswana','BFA': 'Burkina Faso',
     'BDI': 'Burundi','CMR': 'Cameroon','CPV': 'Cape Verde','CAF': 'Central African Republic',
@@ -51,6 +51,7 @@ for ind, name in inds.items():
             data[c["countryiso3code"]][field] = c['value']
 fields = fields.keys()
 w = csv.DictWriter(open(OUTPUT_CSV, 'w+', newline=''), fields, extrasaction = "ignore")
-print(data)
+if DEBUG:
+    print(data)
 w.writeheader()
 for k in data: w.writerow(data[k])

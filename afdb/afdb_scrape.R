@@ -18,24 +18,27 @@
 ################################################################################
 
 # IMPORTS #
-# install.packages("readxl")
-# install.packages("rvest")
+#install.packages("readxl")
+#install.packages("rvest")
 #install.packages("R.utils",repos = "http://cran.us.r-project.org")
-# install.packages("sjmisc")
-# install.packages("xml2")
+#install.packages("sjmisc")
+#install.packages("xml2")
 library(readxl)
 library(rvest)
 library(R.utils)
 library(sjmisc)
 library(xml2)
+#install.packages("Rcpp",repos = "http://cran.us.r-project.org")
+#library(Rcpp)
+#update.packages()
 
 # CONSTANTS AND OUTPUT #
-DEBUG <- FALSE
+DEBUG <- TRUE
 RATE_LIMIT <- 10
 BASE_URL <- "https://projectsportal.afdb.org/dataportal/VProject/show/"
 OUTPUT_FILE <- if(DEBUG) "../data/afdb_test.csv" else "../data/afdb_data.csv"
 DAC_FILE <- "../DAC-CRS-CODES.xls"
-AFDB_SPREADSHEET <- if(DEBUG) "afdb-ids-short.xlsx" else "afdb-ids.xlsx"
+AFDB_SPREADSHEET <- if(DEBUG) "afdb_ids_short.xlsx" else "afdb_ids.xlsx"
 AFDB_SPREADSHEET_URL <- "https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list"
 sink("output.txt", split=TRUE, append = FALSE)
 
@@ -124,7 +127,8 @@ main_table_parse <- function(page, x1) {
   temp <- (page %>% 
              html_node(".table") %>%
              html_table(header = FALSE) %>%
-             filter(X1 == x1))
+             filter(.[,1] == x1))
+  print(temp)
   # check if table had requested data, if not replace with "N/A"
   return (if(nrow(temp) == 0) "N/A" else temp[['X2']])
 }

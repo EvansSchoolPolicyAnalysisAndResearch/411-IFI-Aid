@@ -29,7 +29,7 @@ DEBUG = False
 BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=search'
 TABS = [1,2,3]
 PROJECT_URL = 'https://www.ifad.int/en/web/operations/-/project/'
-OUTPUT_FILE = '../data/ifad_test.csv' if DEBUG else '../data/ifad_data.csv'
+OUTPUT_FILE = './data/ifad_test.csv' if DEBUG else './data/ifad_data.csv'
 IFI_COUNTRIES = ['Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon',
 'Cabo Verde','Central African Republic','Chad','Comoros',"Côte d'Ivoire",'Democratic Republic of the Congo',
 'Equatorial Guinea','Eritrea','Eswatini','Ethiopia','Gabon','Gambia','Gambia (The)', 'Ghana','Guinea',
@@ -49,7 +49,8 @@ def get_html(url):
         except (Exception) as e:
             logging.info('Failed to download webpage, trying again')
             time.sleep(5)
-    return None
+    return None    
+
 
 def get_proj_ids(url, tabs):
     """
@@ -150,7 +151,7 @@ while True:
         df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
         break
     except Exception as e:
-        logging.warn("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the ifad folder.")
+        logging.warn("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
         time.sleep(5)
 
 logging.info('All done!')
