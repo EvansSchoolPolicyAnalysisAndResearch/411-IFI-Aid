@@ -16,8 +16,8 @@ import requests
 DEBUG = False
 PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
 CWD = "./data/"
-PROJECT_LIST = CWD + 'wbp_all.xls'
-FILTERED_PROJECT_LIST = CWD + 'wbp_out.xlsx'
+PROJECT_LIST = CWD + 'wbp_unfiltered.xls'
+FILTERED_PROJECT_LIST = CWD + 'wbp_data.xlsx'
 PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
     'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
@@ -71,9 +71,15 @@ IFI_COUNTRIES = {
     'Republic of Uganda' : 'Uganda',
     'Republic of Zambia' : 'Zambia',
     'Republic of Zimbabwe' : 'Zimbabwe',
+    #Include regions
+    'Eastern Africa' : 'Eastern Africa',
+    'Western Africa' : 'Western Africa',
+    'Central Africa' : 'Central Africa',
+    'Southern Africa' : 'Southern Africa',
+    'Multi-Region' : 'Multinational'
 }
-
-MULTI_REGION = ['World', 'Multi-Region']
+#Add Western Africa, Eastern African, Southern Africa, Central Africa
+MULTI_REGION = ['World']
 
 if not DEBUG:
     #Download the excel spreadsheet from the world bank website
@@ -102,7 +108,7 @@ df = df[df['Status'].isin(['Active', 'Pipeline'])]
 
 #Drop world and multi-regional projects without an IFI country name in the description
 # Get multiregion projects
-multiregion = df[((df['Country'] == 'World') | (df['Country'] == 'Multi-Regional'))]
+multiregion = df[((df['Country'] == 'World') | (df['Country'] == 'Multinational'))]
 #Drop multiregion projects that don't have any IFI countries in the description
 to_drop = multiregion[~multiregion['Description'].fillna(value="").str.contains('|'.join(list(IFI_COUNTRIES.values())))]
 df = pd.concat([df, to_drop, to_drop]).drop_duplicates(keep=False)

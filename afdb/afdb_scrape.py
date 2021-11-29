@@ -22,7 +22,12 @@ CWD = './data/'
 PROJECT_LIST_URL = 'https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list'
 PROJECT_LIST = CWD + 'afdb_ids_short.xlsx' if DEBUG else CWD + 'afdb_ids.xlsx'
 OUTPUT_FILE = CWD + 'afdb_test.csv' if DEBUG else CWD + 'afdb_data.csv'
-DAC_LOOKUP = pd.read_excel('DAC-CRS-CODES.xls', sheet_name='Purpose codes', header=2)
+try:
+    DAC_LOOKUP = pd.read_excel('./DAC-CRS-CODES.xls', sheet_name='Purpose codes', header=2)
+except Exception as e:
+    print(e)
+    print("This error usually happens when running from the script from the wrong directory. Make sure to run from '411-IFI-Aid/'")
+
 
 #Downloads the current list of AfDB projects
 def download_afdb_projects_list():
@@ -56,7 +61,7 @@ def find_in_table(soup, var):
     try:
         temp = soup.body.find(text=var).parent.parent.find_next('td').contents[0]
         return temp
-    except (AttributeError) as e:
+    except (Exception) as e:
         return ""
 
 #Find and return data from nonstandard tables on the project page
@@ -64,7 +69,7 @@ def find_in_nonstandard_table(soup, var):
     try:
         temp = soup.body.find(text=var).find_parent(class_='col-md-4').find_next(class_='col-md-8').contents[0]
         return temp
-    except (AttributeError) as e:
+    except (Exception) as e:
         return ""
 
 #Find and return data from a project page's heading
@@ -72,7 +77,7 @@ def find_in_heading(soup, title):
     try: 
         temp = soup.body.find(text=title).parent.find_next('p').contents[0]
         return temp
-    except (AttributeError) as e:
+    except (Exception) as e:
         return ""
 
 #Returns the description of the given DAC code from the local DAC code spreadsheet
@@ -144,7 +149,7 @@ for index, row in project_ids.iterrows():
 print("Creating excel file '%s' with scraped data" % OUTPUT_FILE)
 df = pd.DataFrame.from_records(scraped_data)
 
-#Don't fail because the output file was open..
+#Don't fail because the output file was open
 while True:
     try:
         df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
