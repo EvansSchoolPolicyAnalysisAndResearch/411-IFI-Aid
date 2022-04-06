@@ -6,17 +6,21 @@
 # This project is licensed under the 3-Clause BSD License. Please see the      #
 # license.txt file for more information.                                       #
 #                                                                              #
-# this script crawls the International Fund for Agricultural Development       #
+# This script crawls the International Fund for Agricultural Development       #
 # project pages to create a database of specified information                  #
-#                                                                              #
-#                                                                              #
-# inputs: none                                                                 #
-# outputs: a csv file containing project numbers, description, planned         #
-#          completion date,  etc                                               #
 ################################################################################
+
+__copyright__ = """
+Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
+"""
+__license__ = """
+This project is licensed under the 3-Clause BSD License. Please see the 
+license.txt file for more information.
+"""
+
+# Imports
 import csv
 import html
-import logging
 import pandas as pd
 import re
 import requests
@@ -25,11 +29,12 @@ import time
 import unidecode
 from bs4 import BeautifulSoup
 
-DEBUG = False
+# Constants
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
 BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=search'
 TABS = [1,2,3]
-PROJECT_URL = 'https://www.ifad.int/en/web/operations/-/project/'
-OUTPUT_FILE = './data/ifad_out_test.csv' if DEBUG else './data/ifad_data.csv'
+PROJECT_URL = 'https://www.ifad.org/en/web/operations/-/project/'
+OUTPUT_FILE = './data/ifad_data_debug.csv' if DEBUG else './data/ifad_data.csv'
 IFI_COUNTRIES = ['Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon',
 'Cabo Verde','Central African Republic','Chad','Comoros',"Côte d'Ivoire",'Democratic Republic of the Congo',
 'Equatorial Guinea','Eritrea','Eswatini','Ethiopia','Gabon','Gambia','Gambia (The)', 'Ghana','Guinea',
@@ -47,10 +52,9 @@ def get_html(url):
             clean_html = html.unescape(response.text)
             return BeautifulSoup(clean_html, 'html.parser')
         except (Exception) as e:
-            logging.info('Failed to download webpage, trying again')
+            print('Failed to download webpage, trying again')
             time.sleep(5)
     return None    
-
 
 def get_proj_ids(url, tabs):
     """
@@ -60,38 +64,37 @@ def get_proj_ids(url, tabs):
     soup = get_html(url)
     projects = list()
     for i in tabs:
-        #These are lists of HTML tags. use <element>.text to get to the actual text
+        # These are lists of HTML tags. use <element>.text to get to the actual text
         countries = soup.select('div.tab' + str(i) + ' div.project-info-container div.col-md-3')
         proj_ids = soup.select('div.tab' + str(i) + ' div.project-info-container div.col-md-2')
         del proj_ids[1::2] #project dates also match the col-md-2 filter; remove them by dropping every other match
         assert(len(proj_ids) == len(countries))
-        #Merge IDs and countries into a single list of tuples
+        # Merge IDs and countries into a single list of tuples
         id_and_country = tuple(zip(proj_ids, countries))
-        #Filter projects for IFI countries "list(filter(lambda...))", then take only the project IDs from the resulting list (a_tuple[0].text)
-        #Concepts: "filtering with lambdas" and "list comprehensions"
+        # Filter projects for IFI countries "list(filter(lambda...))", then take only the project IDs from the resulting list (a_tuple[0].text)
+        # Concepts: "filtering with lambdas" and "list comprehensions"
         relevant_ids = [a_tuple[0].text for a_tuple in (list(filter(lambda t : (t[1].text in IFI_COUNTRIES), id_and_country)))]
         projects.extend(relevant_ids)
     return projects
 
-#Manual scraping method that finds param:to_find in param:soup and places its value in param:data
+# Manual scraping method that finds param:to_find in param:soup and places its value in param:data
 def manual_scrape(soup, data, to_find):
     try:
         ret = soup.find('dt', text=re.compile(r"\s*" + to_find + "\s*")).findNext().text.strip()
         data[to_find] = ret
         return ret
     except Exception as e:
-        logging.debug(e)
-        logging.info('\t%s not found', to_find)
+        print(e)
+        print('\t{0} not found'.format(to_find))
 
-#MAIN
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+# Main
 projects = get_proj_ids(BASE_URL, TABS) if not DEBUG else ['2000003362', '2000001936']
 scraped_data = []
 
 for project_id in projects:
     data = {}
     url = PROJECT_URL + project_id
-    logging.info('Scraping %s', url)
+    print('Scraping {0}'.format(url))
     soup = get_html(url)
     if soup == None:
         next
@@ -105,23 +108,23 @@ for project_id in projects:
     manual_scrape(soup, data, 'IFAD Financing')
     manual_scrape(soup, data, 'Financing Gap')
 
-    #Handle multiple international funders
+    # Handle multiple international funders
     int_funders = ''
     f = soup.find(text='Co-financiers (International)')
     while f != None and 'project-row-text' in f.findNext()['class']:
         int_funders += f.findNext().text.strip() + '); '
         f = f.findNext()
-    int_funders = int_funders[:-2].replace('US$', '(US$') #String cleanup
+    int_funders = int_funders[:-2].replace('US$', '(US$') # String cleanup
     
-    #Handle multiple domestic funders
+    # Handle multiple domestic funders
     dom_funders = ''
     f = soup.find(text='Co-financiers (Domestic)')
     while f != None and 'project-row-text' in f.findNext()['class']:
         dom_funders += f.findNext().text.strip() + '); '
         f = f.findNext()
-    dom_funders = dom_funders[:-2].replace('US$', '(US$') #String cleanup
+    dom_funders = dom_funders[:-2].replace('US$', '(US$') # String cleanup
     
-    #Add international and domestic funders to the lists
+    # Add international and domestic funders to the lists
     if len(int_funders) > 0:
         data['Co-financiers (International)'] = int_funders
     if len(dom_funders) > 0:
@@ -134,24 +137,27 @@ for project_id in projects:
         data['Contact Email'] = soup.find(text=contact_name).parent['href'][7:]
 
     for key in data.keys():
-        #Remove special characters, but not from country names!
+        # Remove special characters, but not from country names
         if key != 'Country':
             data[key] = unidecode.unidecode(data[key].strip()).strip() 
     
-    [logging.info('\t%s: %s', key, value) for key, value in data.items()] #Print the scraped data
     scraped_data.append(data)
+    
+    # Print the scraped data
+    [print('\t{0}: {1}'.format(key, value)) for key, value in data.items()] 
+    print()
 
-#Convert into an excel file
-logging.info("Creating excel file '%s' with scraped data" % OUTPUT_FILE)
+# Export into excel file
+print("Creating excel file '{0}' with scraped data".format(OUTPUT_FILE))
 df = pd.DataFrame.from_records(scraped_data)
 
-#Don't fail because the output file was open..
+# Don't fail because the output file was open
 while True:
     try:
         df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
         break
     except Exception as e:
-        logging.warn("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
+        print("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
         time.sleep(5)
 
-logging.info('All done!')
+print('All done!')

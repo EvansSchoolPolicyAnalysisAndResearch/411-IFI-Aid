@@ -1,6 +1,15 @@
-#!/usr/bin/env python3
-""" Download data from the World Bank's Project API
-"""
+################################################################################
+# wbp/wbp-scrape.py                                                            #
+#                                                                              #
+# Copyright 2021 Evans Policy Analysis and Research Group (EPAR).              #
+#                                                                              #
+# This project is licensed under the 3-Clause BSD License. Please see the      #
+# license.txt file for more information.                                       #
+#                                                                              #
+# This script downloads information from the World Bank Projects API           #
+# to create a database of specified information                                #
+################################################################################
+
 __copyright__ = """
 Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
 """
@@ -8,22 +17,24 @@ __license__ = """
 This project is licensed under the 3-Clause BSD License. Please see the 
 license.txt file for more information.
 """
-#Imports
+
+# Imports
 import pandas as pd
 import requests
+import sys
 
-#Constants
-DEBUG = False
+# Constants
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
 PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
 CWD = "./data/"
 PROJECT_LIST = CWD + 'wbp_unfiltered.xls'
-FILTERED_PROJECT_LIST = CWD + 'wbp_data.xlsx'
+FILTERED_PROJECT_LIST = CWD +'wbp_data_debug.xlsx' if DEBUG else CWD + 'wbp_data.xlsx'
 PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
     'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
 RENAME_COLUMNS = {'Project Status':'Status', 'Project Development Objective ':'Description', 'Project Closing Date':'Closing Date'}
 
-#Key = WB country name format, Value = IFI project country name format
+# Key = WB country name format, Value = IFI project country name format
 IFI_COUNTRIES = { 
     'Republic of Angola': 'Angola',
     'Republic of Benin' : 'Benin',
@@ -78,11 +89,13 @@ IFI_COUNTRIES = {
     'Southern Africa' : 'Southern Africa',
     'Multi-Region' : 'Multinational'
 }
-#Add Western Africa, Eastern African, Southern Africa, Central Africa
+# Add Western Africa, Eastern African, Southern Africa, Central Africa
 MULTI_REGION = ['World']
 
+
+# Main
 if not DEBUG:
-    #Download the excel spreadsheet from the world bank website
+    # Download the excel spreadsheet from the world bank website
     print("Downloading projects spreadsheet from the WB website")
     r = requests.get(PROJECT_LIST_URL)
     print("Download complete!")
@@ -92,39 +105,41 @@ if not DEBUG:
     print("Writing unfiltered projects to " + PROJECT_LIST)
 
 print("Filtering to active projects in IFI countries")
-#Read in the unfiltered list of projects
+# Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST, header=1)
-#Commitment amount = IDA + IBRD + grant amounts. (Do this before dropping the Total & Grant columns)
+# Commitment amount = IDA + IBRD + grant amounts. (Do this before dropping the Total & Grant columns)
 df['Commitment Amount (USD)'] = df['Total IDA and IBRD Commitment'] + df['Grant Amount']
 #Drop unneeded indicators and rename others
 df.drop(DROP_COLUMNS, axis=1, inplace=True)
 df.rename(columns=RENAME_COLUMNS, inplace=True)
-#Drop non-IFI countries
+# Drop non-IFI countries
 df = df[df['Country'].isin(list(IFI_COUNTRIES.keys()) + MULTI_REGION)]
-#Standardize country names to IFI project format
+# Standardize country names to IFI project format
 df = df.replace(IFI_COUNTRIES)
-#Drop inactive projects (possible states: Active*, Pipeline*, Dropped, Closed)
+# Drop inactive projects (possible states: Active*, Pipeline*, Dropped, Closed)
 df = df[df['Status'].isin(['Active', 'Pipeline'])]
 
-#Drop world and multi-regional projects without an IFI country name in the description
+# Drop world and multi-regional projects without an IFI country name in the description
 # Get multiregion projects
 multiregion = df[((df['Country'] == 'World') | (df['Country'] == 'Multinational'))]
-#Drop multiregion projects that don't have any IFI countries in the description
+# Drop multiregion projects that don't have any IFI countries in the description
 to_drop = multiregion[~multiregion['Description'].fillna(value="").str.contains('|'.join(list(IFI_COUNTRIES.values())))]
 df = pd.concat([df, to_drop, to_drop]).drop_duplicates(keep=False)
 print("Keeping " + str(len(multiregion.index) - len(to_drop.index)) + " multi-region/world projects related to IFI countries (out of " + str(len(multiregion.index)) + ")")
 
-#Calculate duration
-df['Board Approval Date'] = pd.to_datetime(df['Board Approval Date'], infer_datetime_format=True)
-df['Closing Date'] = pd.to_datetime(df['Closing Date'], infer_datetime_format=True)
-#Make a 'Project Duration' variable that is 'Closing Date' minus 'Board Approval Date' converted into years 
-# and rounded to 2 decimals places (only if there *is* a closing date, otherwise leave the duration empty)
+# Calculate duration
+df['Board Approval Date'] = pd.to_datetime(df['Board Approval Date'], infer_datetime_format=True).dt.tz_localize(None)
+df['Closing Date'] = pd.to_datetime(df['Closing Date'], infer_datetime_format=True).dt.tz_localize(None)
+
+# project duration = closing date - board approval date (in years, rounded to 2 decimals)
+# (only populated if there *is* a closing date, otherwise duration is null)
 df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Board Approval Date']).days / 365.25, 2) if pd.notnull(x['Closing Date']) else None, axis=1)
-#Remove time from dates
+
+# Remove time from dates
 df['Board Approval Date'] = df['Board Approval Date'].dt.date
 df['Closing Date'] = df['Closing Date'].dt.date
 
-#Write to output file
+# Write to output file
 print("Writing the filtered project list to " + FILTERED_PROJECT_LIST)
 df.to_excel(open(FILTERED_PROJECT_LIST, 'wb'), index=False, na_rep='')
 print("Done")

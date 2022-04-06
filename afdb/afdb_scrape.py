@@ -1,6 +1,15 @@
-#!/usr/bin/env python3
-""" Scrape data from the AfDB webpage
-"""
+################################################################################
+# afdb/afdb-scrape.py                                                          #
+#                                                                              #
+# Copyright 2021 Evans Policy Analysis and Research Group (EPAR).              #
+#                                                                              #
+# This project is licensed under the 3-Clause BSD License. Please see the      #
+# license.txt file for more information.                                       #
+#                                                                              #
+# This script crawls the African Development Bank project pages to             #
+# create a database of specified information                                   #
+################################################################################
+
 __copyright__ = """
 Copyright 2021 Evans Policy Analysis and Research Group (EPAR).
 """
@@ -8,30 +17,30 @@ __license__ = """
 This project is licensed under the 3-Clause BSD License. Please see the 
 license.txt file for more information.
 """
-#Imports
+
+# Imports
 import html
 import pandas as pd
 import requests
+import sys
 import time
 from bs4 import BeautifulSoup
 
-#Constants
-DEBUG = False
+# Constants
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
 BASE_URL = 'https://projectsportal.afdb.org/dataportal/VProject/show/'
 CWD = './data/'
 PROJECT_LIST_URL = 'https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list'
-PROJECT_LIST = CWD + 'afdb_ids_short.xlsx' if DEBUG else CWD + 'afdb_ids.xlsx'
-OUTPUT_FILE = CWD + 'afdb_test.csv' if DEBUG else CWD + 'afdb_data.csv'
+PROJECT_LIST = CWD + 'afdb_ids_debug.xlsx' if DEBUG else CWD + 'afdb_ids.xlsx'
+OUTPUT_FILE = CWD + 'afdb_debug.csv' if DEBUG else CWD + 'afdb_data.csv'
 try:
     DAC_LOOKUP = pd.read_excel('./DAC-CRS-CODES.xls', sheet_name='Purpose codes', header=2)
 except Exception as e:
-    print(e)
+    print("Exception opening DAC code excel file: {0}".format(e))
     print("This error usually happens when running from the script from the wrong directory. Make sure to run from '411-IFI-Aid/'")
 
-
-#Downloads the current list of AfDB projects
+# Downloads the current list of AfDB projects
 def download_afdb_projects_list():
-    #Download the excel spreadsheet from the AfDB website
     print('Downloading projects spreadsheet from the AfDB website')
     r = requests.get(PROJECT_LIST_URL)
     print('Download complete!')
@@ -40,9 +49,10 @@ def download_afdb_projects_list():
     unfiltered_projs.close()
     print('Writing unfiltered projects to ' + PROJECT_LIST)
 
-#Download url and return a BeautifulSoup object from the resulting html
+# Download url and return a BeautifulSoup object from the resulting html
 def get_html(url):
     attempts = 0
+    # Retry up to 20 times, then quit
     while(attempts < 20):
         try:
             attempts += 1
@@ -56,7 +66,7 @@ def get_html(url):
             time.sleep(5)
     return None
 
-#Find and return data from standard tables on the project page
+# Find and return data from standard tables on the project page
 def find_in_table(soup, var):
     try:
         temp = soup.body.find(text=var).parent.parent.find_next('td').contents[0]
@@ -64,7 +74,7 @@ def find_in_table(soup, var):
     except (Exception) as e:
         return ""
 
-#Find and return data from nonstandard tables on the project page
+# Find and return data from nonstandard tables on the project page
 def find_in_nonstandard_table(soup, var):
     try:
         temp = soup.body.find(text=var).find_parent(class_='col-md-4').find_next(class_='col-md-8').contents[0]
@@ -72,7 +82,7 @@ def find_in_nonstandard_table(soup, var):
     except (Exception) as e:
         return ""
 
-#Find and return data from a project page's heading
+# Find and return data from a project page's heading
 def find_in_heading(soup, title):
     try: 
         temp = soup.body.find(text=title).parent.find_next('p').contents[0]
@@ -80,7 +90,7 @@ def find_in_heading(soup, title):
     except (Exception) as e:
         return ""
 
-#Returns the description of the given DAC code from the local DAC code spreadsheet
+# Returns the description of the given DAC code from the local DAC code spreadsheet
 def get_dac5_desc(code):
     if code == None or len(code) < 3 or code == 'N/A':
         return "N/A"
@@ -89,31 +99,33 @@ def get_dac5_desc(code):
     desc = DAC_LOOKUP[DAC_LOOKUP[column_name] == code]['DESCRIPTION'].values[0]
     return desc
 
-#MAIN
+# Main
 if not DEBUG:
     download_afdb_projects_list()
 
-#Read in the unfiltered list of projects
+# Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST)
 print('Filtering to active projects in IFI countries')
 project_ids = df[df['Status'].isin(['Approved', 'Implementation'])]
 
 scraped_data = []
-#Scrape each project and store in scraped_data
+# Scrape each project and store in scraped_data
 for index, row in project_ids.iterrows():
-    #Skip irrelevant projects
+    # Drop projects that are not approved or in progress
     if row['Project Code'] == None or row['Project Code'] == '' or (row['Status'] != 'Approved' and row['Status'] != 'Implementation'):
         next
-    #Start timer & initialize entry
+
+    # Start timer
     start_time = time.time()
-    data = {}
+    
     print('\n\nScraping project: ' + row['Project Code'])
+    data = {}
     soup = get_html(BASE_URL + row['Project Code'])
 
-    #Get details from html
+    # Get details from html
     data['Project ID'] = row['Project Code']
     data['Country'] = find_in_table(soup, 'Country').get_text()
-    #Break down the "Country - Project Title" header to get the title
+    # Break down the "Country - Project Title" header to get the title
     cpt = soup.body.find('h2', class_='title').get_text().split('- ', 1)
     title = cpt[1] if len(cpt) == 2 else cpt[0]
     data['Project Title'] = title
@@ -139,17 +151,18 @@ for index, row in project_ids.iterrows():
     
     [print(key,':',value) for key, value in data.items()]
     scraped_data.append(data)
-    #Make sure to wait before scraping each page (10s delay requested by AfDB robots.txt)
+
+    # Make sure to wait before scraping each page (10s delay requested by AfDB's robots.txt)
     elapsed = time.time() - start_time
     if elapsed < 10:
         print("Waiting %.2fs before next scrape" % (10 - elapsed))
         time.sleep(10 - elapsed)
 
-#Convert into an excel file
+# Convert into an excel file
 print("Creating excel file '%s' with scraped data" % OUTPUT_FILE)
 df = pd.DataFrame.from_records(scraped_data)
 
-#Don't fail because the output file was open
+# Don't fail because the output file was open
 while True:
     try:
         df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')

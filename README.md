@@ -27,18 +27,18 @@ python <script_name>.py
 
 # Links
 
-## African Development Bank (AfDB)
+### African Development Bank (AfDB)
 
 https://www.afdb.org/en/projects-and-operations
 
-## IFAD (International Fund for Agricultural Development)
+### IFAD (International Fund for Agricultural Development)
 
 https://www.ifad.org/en/web/operations/projects-and-programmes
 
-## WDI (World Development Indicators)
+### WDI (World Development Indicators)
 
 https://databank.worldbank.org/source/world-development-indicators
 
-## WBP (World Bank Projects)
+### WBP (World Bank Projects)
 
 https://projects.worldbank.org/en/projects-operations/projects-home
