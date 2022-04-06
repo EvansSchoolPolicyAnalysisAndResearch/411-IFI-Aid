@@ -1,65 +1,45 @@
-International Financial Institution Data Scraping
+# International Financial Institution Data Scraping
 =================================================
 
-This repository represents a series of scripts written to scrape data from a 
-variety of International Financial Institutions. These scripts were written
-to capture data available on project web pages but not available in the bulk
-download files offered by the sites in question. The exception is the WDI 
-scraper which downloads data from the World Bank's World Development Indicators
-(wdi) API in a format more easily interpreted in certain statistical processing 
-software. 
+This repository represents a series of scripts written to scrape data from a variety of International Financial Institutions (IFIs). These scripts were written to capture data available on project web pages but not available in the bulk download files offered by the sites in question. The exception is the WDI scraper which downloads data from the World Bank's World Development Indicators (wdi) API in a format more easily interpreted in certain statistical processing software. 
 
-The World Bank Scrapers --- World Bank Project (wbp) and wdi --- access the 
-public World Bank APIs and are written in Python. The African Development bank
-(afdb) scraper was written in R and scrapes the site itself, with delays in
-accordance with the site's robots.txt file.
+The scripts that scrape World Bank data --- World Bank Project (wbp) and World Development Indicators (wdi) --- access the 
+public World Bank APIs; the African Development Bank (afdb) and International Fund for Agricultural Development (ifad) scrapers the organization's project websites, with delays in accordance with the site's robots.txt file.
 
-Makefile
---------
+## Running the scripts
 
-The provided makefile runs the python scrapers with a default set of input and 
-output files and settings, as well as a debug option. The afdb scraper is not
-run because of differences in how R is used in practice (often from within R
-Studio and not as stand alone scripts.) For more information on how to run the
-scripts manually please see the README.mds in each individual folder.
+All scripts require python (and only python) and output their resulting data into `/data`. 
 
-The makefile was written to work with GNU Make v4.2.1
+The parent script `run_all.py` simply runs each script one at a time. To run this script and generate all output use the following command in this directory (i.e., `./411-IFI-Aid`):
 
-the makefile contains the following targets:
+```python 
+python run_all.py
+```
 
-```make all```
+## Running scripts individually
 
-a target which runs both `data/wdi-data.csv` and `data/wbp-data.csv`.
+Running scripts individually is usually only necessary if only one data source needs updating or a particular script is not working properly. Each script has a `DEBUG` flag that, when set, reduces the number of projects visited and avoids accessing the IFIs website when possible. This flag should be set to False unless actively changing/updating the scripts.
 
+Running one script can be done by using the following command *in the directory of that script* (e.g., run the AfDB script in `411-IFI-Aid/afdb`)
 
-```make data/wdi-data.csv```
+```python
+python <script_name>.py
+```
 
-Runs the `wdi/wdi-scraper.py` with `wdi/country-list.csv` as the country input,
-and `wdi-inds.csv` as the list of indicators. output is saved in 
-`data/wdi-data.csv`.
+# Links
 
-```make data/wbp-data.csv```
+## African Development Bank (AfDB)
 
-Runs `wbp/wb-scraper.py` with `wbp/wb-ids.txt` as the input file and saves 
-the output to `data/wbp-data.csv`
+https://www.afdb.org/en/projects-and-operations
 
-```make debug```
+## IFAD (International Fund for Agricultural Development)
 
-A target which runs both `data/wbp-test.csv` and `data/wdi-test.csv`.
+https://www.ifad.org/en/web/operations/projects-and-programmes
 
-```make data/wdi-test.csv```
+## WDI (World Development Indicators)
 
-Runs the `wdi/wdi-scraper.py` with `wdi/country-list.csv` as the country input,
-and `wdi-short.csv` as the list of indicators. output is saved in 
-`data/wdi-test.csv`.
+https://databank.worldbank.org/source/world-development-indicators
 
-```make data/wbp-test.csv```
+## WBP (World Bank Projects)
 
-Runs `wbp/wb-scraper.py` with `wbp/wb-short.txt` as the input file and
-saves the output to `data/wbp-test.csv`
-
-```make clean```
-
-Removes `data/wbp-test.csv` and `data/wdi-test.csv`. It does not remove the 
-full downloads because it would really suck to have to run everything again if 
-you don't have to.
+https://projects.worldbank.org/en/projects-operations/projects-home
