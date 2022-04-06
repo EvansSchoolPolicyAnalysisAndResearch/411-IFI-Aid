@@ -1,5 +1,4 @@
 # International Financial Institution Data Scraping
-=================================================
 
 This repository represents a series of scripts written to scrape data from a variety of International Financial Institutions (IFIs). These scripts were written to capture data available on project web pages but not available in the bulk download files offered by the sites in question. The exception is the WDI scraper which downloads data from the World Bank's World Development Indicators (wdi) API in a format more easily interpreted in certain statistical processing software. 
 
