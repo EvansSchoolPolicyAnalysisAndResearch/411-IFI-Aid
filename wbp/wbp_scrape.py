@@ -32,7 +32,7 @@ FILTERED_PROJECT_LIST = CWD +'wbp_data_debug.xlsx' if DEBUG else CWD + 'wbp_data
 PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
     'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
-RENAME_COLUMNS = {'Project Status':'Status', 'Project Development Objective ':'Description', 'Project Closing Date':'Closing Date'}
+RENAME_COLUMNS = {'Project Name': 'Project Title', 'Project Status':'Status', 'Project Development Objective ':'Description', 'Project Closing Date':'Closing Date'}
 
 # Key = WB country name format, Value = IFI project country name format
 IFI_COUNTRIES = { 
@@ -69,7 +69,7 @@ IFI_COUNTRIES = {
     'Republic of Namibia' : 'Namibia',
     'Republic of Niger' : 'Niger',
     'Federal Republic of Nigeria' : 'Nigeria',
-    'Republic of Congo' : 'Republic of Congo',
+    'Republic of Congo' : 'Republic of the Congo',
     'Republic of Rwanda' : 'Rwanda',
     'Democratic Republic of Sao Tome and Pricipe' : 'Sao Tome and Principe',
     'Republic of Senegal' : 'Senegal',
@@ -92,7 +92,6 @@ IFI_COUNTRIES = {
 # Add Western Africa, Eastern African, Southern Africa, Central Africa
 MULTI_REGION = ['World']
 
-
 # Main
 if not DEBUG:
     # Download the excel spreadsheet from the world bank website
@@ -107,6 +106,7 @@ if not DEBUG:
 print("Filtering to active projects in IFI countries")
 # Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST, header=1)
+
 # Commitment amount = IDA + IBRD + grant amounts. (Do this before dropping the Total & Grant columns)
 df['Commitment Amount (USD)'] = df['Total IDA and IBRD Commitment'] + df['Grant Amount']
 #Drop unneeded indicators and rename others
@@ -136,8 +136,14 @@ df['Closing Date'] = pd.to_datetime(df['Closing Date'], infer_datetime_format=Tr
 df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Board Approval Date']).days / 365.25, 2) if pd.notnull(x['Closing Date']) else None, axis=1)
 
 # Remove time from dates
-df['Board Approval Date'] = df['Board Approval Date'].dt.date
+df['Approval Date'] = df['Board Approval Date'].dt.date
 df['Closing Date'] = df['Closing Date'].dt.date
+
+# Combine all sectors and themes into a single Sector column
+sector_df = df.filter(['Sector 1', 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1)
+sector_df = sector_df.apply(lambda x: None if x.isnull().all() else '; '.join(x.dropna()), axis=1)
+df['Sector'] = sector_df
+df.drop(columns=['Board Approval Date', 'Sector 1', 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1, inplace=True)
 
 # Write to output file
 print("Writing the filtered project list to " + FILTERED_PROJECT_LIST)

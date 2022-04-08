@@ -13,8 +13,8 @@ import os
 import subprocess
 
 # Constants
-DEBUG = True
-IFIS = ["ifad", "wbp", "wdi", "afdb"]
+DEBUG = False
+IFIS = ["wbp", "wdi", 'ifad',"afdb"] # Ordered from shortest to longest scrape time
 
 #MAIN
 print("Downloading dependencies")

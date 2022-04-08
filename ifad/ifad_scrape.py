@@ -35,13 +35,56 @@ BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=
 TABS = [1,2,3]
 PROJECT_URL = 'https://www.ifad.org/en/web/operations/-/project/'
 OUTPUT_FILE = './data/ifad_data_debug.csv' if DEBUG else './data/ifad_data.csv'
-IFI_COUNTRIES = ['Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon',
-'Cabo Verde','Central African Republic','Chad','Comoros',"Côte d'Ivoire",'Democratic Republic of the Congo',
-'Equatorial Guinea','Eritrea','Eswatini','Ethiopia','Gabon','Gambia','Gambia (The)', 'Ghana','Guinea',
-'Guinea-Bissau','Kenya','Lesotho','Liberia','Madagascar','Malawi','Mali','Mauritania',
-'Mauritius','Mozambique','Namibia','Niger','Nigeria','Republic of Congo','Rwanda',
-'Sao Tome and Principe','Senegal','Seychelles','Sierra Leone','South Africa','South Sudan',
-'Tanzania', 'United Republic of Tanzania', 'Togo','Uganda','Zambia','Zimbabwe']
+IFI_COUNTRIES = {
+    'Angola': 'Angola',
+    'Benin': 'Benin',
+    'Botswana': 'Botswana',
+    'Burkina Faso': 'Burkina Faso',
+    'Burundi': 'Burundi',
+    'Cameroon': 'Cameroon',
+    'Cabo Verde': 'Verde',
+    'Central African Republic': 'Central African Republic',
+    'Chad': 'Chad',
+    'Comoros': 'Comoros',
+    "Côte d'Ivoire": "Côte d'Ivoire",
+    'Democratic Republic of the Congo': 'Democratic Republic of the Congo',
+    'Equatorial Guinea': 'Equatorial Guinea',
+    'Eritrea': 'Eritrea',
+    'Eswatini': 'Eswatini',
+    'Ethiopia': 'Ethiopia',
+    'Gabon': 'Gabon',
+    'Gambia': 'Gambia',
+    'Gambia (The)': 'Gambia',
+    'Ghana': 'Ghana',
+    'Guinea': 'Guinea',
+    'Guinea-Bissau': 'Guinea-Bissau',
+    'Kenya': 'Kenya',
+    'Lesotho': 'Lesotho',
+    'Liberia': 'Liberia',
+    'Madagascar': 'Madagascar',
+    'Malawi': 'Malawi',
+    'Mali': 'Mali',
+    'Mauritania': 'Mauritania',
+    'Mauritius': 'Mauritius',
+    'Mozambique': 'Mozambique',
+    'Namibia': 'Namibia',
+    'Niger': 'Niger',
+    'Nigeria': 'Nigeria',
+    'Republic of Congo': 'Republic of the Congo',
+    'Rwanda': 'Rwanda',
+    'Sao Tome and Principe': 'Sao Tome and Principe',
+    'Senegal': 'Senegal',
+    'Seychelles': 'Seychelles',
+    'Sierra Leone': 'Sierra Leone',
+    'South Africa': 'South Africa',
+    'South Sudan': 'South Sudan',
+    'Tanzania': 'Tanzania',
+    'United Republic of Tanzania': 'Tanzania',
+    'Togo': 'Togo',
+    'Uganda': 'Uganda',
+    'Zambia': 'Zambia',
+    'Zimbabwe' : 'Zimbabwe'
+}
 
 def get_html(url):
     attempts = 0
@@ -73,7 +116,7 @@ def get_proj_ids(url, tabs):
         id_and_country = tuple(zip(proj_ids, countries))
         # Filter projects for IFI countries "list(filter(lambda...))", then take only the project IDs from the resulting list (a_tuple[0].text)
         # Concepts: "filtering with lambdas" and "list comprehensions"
-        relevant_ids = [a_tuple[0].text for a_tuple in (list(filter(lambda t : (t[1].text in IFI_COUNTRIES), id_and_country)))]
+        relevant_ids = [a_tuple[0].text for a_tuple in (list(filter(lambda t : (t[1].text in IFI_COUNTRIES.keys()), id_and_country)))]
         projects.extend(relevant_ids)
     return projects
 
@@ -134,12 +177,15 @@ for project_id in projects:
     manual_scrape(soup, data, 'Sector')
     contact_name = manual_scrape(soup, data, 'Project Contact')
     if contact_name != None and soup.find(text=contact_name) != None:
-        data['Contact Email'] = soup.find(text=contact_name).parent['href'][7:]
+        data['Contact Details'] = soup.find(text=contact_name).parent['href'][7:]
 
     for key in data.keys():
         # Remove special characters, but not from country names
         if key != 'Country':
             data[key] = unidecode.unidecode(data[key].strip()).strip() 
+        # Translate country names into IFI format
+        else:
+            data[key] = IFI_COUNTRIES[data[key]]
     
     scraped_data.append(data)
     

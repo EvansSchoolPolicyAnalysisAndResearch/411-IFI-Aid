@@ -28,11 +28,64 @@ from bs4 import BeautifulSoup
 
 # Constants
 DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
+DEBUG_COUNT = 5 # How many projects to scrape when debugging
 BASE_URL = 'https://projectsportal.afdb.org/dataportal/VProject/show/'
 CWD = './data/'
 PROJECT_LIST_URL = 'https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list'
 PROJECT_LIST = CWD + 'afdb_ids_debug.xlsx' if DEBUG else CWD + 'afdb_ids.xlsx'
 OUTPUT_FILE = CWD + 'afdb_debug.csv' if DEBUG else CWD + 'afdb_data.csv'
+# Key = AfDB country name format, Value = IFI project country name format
+IFI_COUNTRIES = { 
+    'Angola': 'Angola',
+    'Benin' : 'Benin',
+    'Botswana' : 'Botswana',
+    'Burkina Faso' : 'Burkina Faso',
+    'Burundi' : 'Burundi',
+    'Cameroon' : 'Cameroon',
+    'Cape Verde' : 'Cabo Verde',
+    'Central African Republic' : 'Central African Republic',
+    'Chad' : 'Chad',
+    'Comoros' : 'Comoros',
+    "Cote d'Ivoire" : "Côte d'Ivoire",
+    'Congo, the Democratic Republic of the' : 'Democratic Republic of the Congo',
+    'Equatorial Guinea' : 'Equatorial Guinea',
+    'Eritrea' : 'Eritrea',
+    'Eswatini' : 'Eswatini',
+    'Ethiopia' : 'Ethiopia',
+    'Gabon' : 'Gabon',
+    'Gambia' : 'Gambia',
+    'Ghana' :  'Ghana',
+    'Guinea' : 'Guinea',
+    'Guinea-Bissau' : 'Guinea-Bissau',
+    'Kenya' : 'Kenya',
+    'Kingdom of Lesotho' : 'Lesotho',
+    'Liberia' : 'Liberia',
+    'Madagascar' : 'Madagascar',
+    'Malawi' : 'Malawi',
+    'Mali' : 'Mali',
+    'Mauritania' : 'Mauritania',
+    'Mauritius' : 'Mauritius',
+    'Mozambique' : 'Mozambique',
+    'Namibia' : 'Namibia',
+    'Niger' : 'Niger',
+    'Nigeria' : 'Nigeria',
+    'Congo' : 'Republic of the Congo',
+    'Rwanda' : 'Rwanda',
+    'Sao Tome and Pricipe' : 'Sao Tome and Principe',
+    'Senegal' : 'Senegal',
+    'Seychelles' : 'Seychelles',
+    'Sierra Leone' : 'Sierra Leone',
+    'South Africa' : 'South Africa',
+    'South Sudan' : 'South Sudan',
+    'Tanzania, United Republic of' : 'Tanzania',
+    'Togo' : 'Togo',
+    'Uganda' : 'Uganda',
+    'Zambia' : 'Zambia',
+    'Zimbabwe' : 'Zimbabwe',
+    #Include regions
+    'Multinational' : 'Multinational'
+}
+
 try:
     DAC_LOOKUP = pd.read_excel('./DAC-CRS-CODES.xls', sheet_name='Purpose codes', header=2)
 except Exception as e:
@@ -106,12 +159,13 @@ if not DEBUG:
 # Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST)
 print('Filtering to active projects in IFI countries')
-project_ids = df[df['Status'].isin(['Approved', 'Implementation'])]
+project_ids = df[(df['Status'].isin(['Approved', 'Implementation']) & df['Country'].isin(IFI_COUNTRIES.keys()))]
 
 scraped_data = []
+count = 0
 # Scrape each project and store in scraped_data
 for index, row in project_ids.iterrows():
-    # Drop projects that are not approved or in progress
+    # Drop projects that are not in countries of interest, approved, or in progress
     if row['Project Code'] == None or row['Project Code'] == '' or (row['Status'] != 'Approved' and row['Status'] != 'Implementation'):
         next
 
@@ -124,7 +178,7 @@ for index, row in project_ids.iterrows():
 
     # Get details from html
     data['Project ID'] = row['Project Code']
-    data['Country'] = find_in_table(soup, 'Country').get_text()
+    data['Country'] = IFI_COUNTRIES[find_in_table(soup, 'Country').get_text()]
     # Break down the "Country - Project Title" header to get the title
     cpt = soup.body.find('h2', class_='title').get_text().split('- ', 1)
     title = cpt[1] if len(cpt) == 2 else cpt[0]
@@ -141,8 +195,8 @@ for index, row in project_ids.iterrows():
     data['Description'] = str(find_in_heading(soup, 'Project General Description')) 
     obj = str(find_in_heading(soup, 'Project Objectives'))
     data['Description'] += "\n" + obj if (obj != "" or obj == None) else ""
-    data['Contact Name'] = str(find_in_table(soup, 'Name')).title()
-    data['Contact Email'] = find_in_table(soup, 'Email')
+    data['Project Contact'] = str(find_in_table(soup, 'Name')).title()
+    data['Contact Details'] = find_in_table(soup, 'Email')
     data['Sector'] = find_in_table(soup, 'Sector').get_text()
     data['DAC Sector Code'] = find_in_table(soup, 'DAC Sector Code')
     data['Detailed Description'] = get_dac5_desc(data['DAC Sector Code'])
@@ -151,6 +205,10 @@ for index, row in project_ids.iterrows():
     
     [print(key,':',value) for key, value in data.items()]
     scraped_data.append(data)
+    count = count + 1
+    if DEBUG and count == DEBUG_COUNT:
+        print("Scraped first {0} projects for debugging, ending now".format(DEBUG_COUNT))
+        break
 
     # Make sure to wait before scraping each page (10s delay requested by AfDB's robots.txt)
     elapsed = time.time() - start_time
