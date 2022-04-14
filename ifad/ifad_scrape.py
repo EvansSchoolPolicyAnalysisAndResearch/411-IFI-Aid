@@ -121,14 +121,17 @@ def get_proj_ids(url, tabs):
     return projects
 
 # Manual scraping method that finds param:to_find in param:soup and places its value in param:data
-def manual_scrape(soup, data, to_find):
+def manual_scrape(soup, data, to_find, column_name=None):
     try:
         ret = soup.find('dt', text=re.compile(r"\s*" + to_find + "\s*")).findNext().text.strip()
-        data[to_find] = ret
+        data[column_name if column_name != None else to_find] = ret
         return ret
     except Exception as e:
         print(e)
         print('\t{0} not found'.format(to_find))
+
+def rename_indicator(data, old_name, new_name):
+    data[new_name] = data.pop(old_name)
 
 # Main
 projects = get_proj_ids(BASE_URL, TABS) if not DEBUG else ['2000003362', '2000001936']
@@ -141,40 +144,26 @@ for project_id in projects:
     soup = get_html(url)
     if soup == None:
         next
-    data['Project ID'] = project_id
+    data['IFI'] = "International Fund for Agricultural Development"
     manual_scrape(soup, data, 'Country')
+    data['Project ID'] = project_id
     data['Project Title'] = soup.select("h1[class!=\"hide-accessible\"]")[0].text
-    manual_scrape(soup, data, 'Total Project Cost')
     data['Status'] = soup.select('dd.project-status > span')[0].text[8:]
     manual_scrape(soup, data, 'Approval Date')
-    manual_scrape(soup, data, 'Duration')
-    manual_scrape(soup, data, 'IFAD Financing')
-    manual_scrape(soup, data, 'Financing Gap')
+    manual_scrape(soup, data, 'Sector', 'Primary Sector')
+    manual_scrape(soup, data, 'IFAD Financing', 'Commitment Amount (USD)')
+        
+    # Below line takes a number in the form "US$ 52.49 million" and translates it into "52490000"
+    # Assumes that the project funding is in millions (which is not generally safe, but currently works)
+    data['Commitment Amount (USD)'] = int(float(re.findall("[0-9]+\.*[0-9]*", data['Commitment Amount (USD)'])[0]) * 1000000)
 
-    # Handle multiple international funders
-    int_funders = ''
-    f = soup.find(text='Co-financiers (International)')
-    while f != None and 'project-row-text' in f.findNext()['class']:
-        int_funders += f.findNext().text.strip() + '); '
-        f = f.findNext()
-    int_funders = int_funders[:-2].replace('US$', '(US$') # String cleanup
-    
-    # Handle multiple domestic funders
-    dom_funders = ''
-    f = soup.find(text='Co-financiers (Domestic)')
-    while f != None and 'project-row-text' in f.findNext()['class']:
-        dom_funders += f.findNext().text.strip() + '); '
-        f = f.findNext()
-    dom_funders = dom_funders[:-2].replace('US$', '(US$') # String cleanup
-    
-    # Add international and domestic funders to the lists
-    if len(int_funders) > 0:
-        data['Co-financiers (International)'] = int_funders
-    if len(dom_funders) > 0:
-        data['Co-financiers (Domestic)'] = dom_funders
+    manual_scrape(soup, data, 'Duration', 'Project Duration')
+    # Translates duration = "2021 - 2024" into "3"
+    duration = re.split(' - ', data['Project Duration'])
+    data['Project Duration'] = int(duration[1]) - int(duration[0])
+    data['Closing Date'] = duration[1]
 
-    manual_scrape(soup, data, 'Financing terms')
-    manual_scrape(soup, data, 'Sector')
+    #Scrape contact data
     contact_name = manual_scrape(soup, data, 'Project Contact')
     if contact_name != None and soup.find(text=contact_name) != None:
         data['Contact Details'] = soup.find(text=contact_name).parent['href'][7:]
@@ -182,16 +171,43 @@ for project_id in projects:
     for key in data.keys():
         # Remove special characters, but not from country names
         if key != 'Country':
-            data[key] = unidecode.unidecode(data[key].strip()).strip() 
+            data[key] = data[key] if type(data[key]) != str else unidecode.unidecode(data[key].strip()).strip()
         # Translate country names into IFI format
         else:
             data[key] = IFI_COUNTRIES[data[key]]
-    
-    scraped_data.append(data)
-    
+
     # Print the scraped data
     [print('\t{0}: {1}'.format(key, value)) for key, value in data.items()] 
     print()
+    
+    #Add to list of projects
+    scraped_data.append(data)
+
+    ## Not currently used, but valid scrapes if needed
+    # manual_scrape(soup, data, 'Total Project Cost')
+    # manual_scrape(soup, data, 'Financing Gap')
+    # manual_scrape(soup, data, 'Financing terms')
+    # # Handle multiple international funders
+    # int_funders = ''
+    # f = soup.find(text='Co-financiers (International)')
+    # while f != None and 'project-row-text' in f.findNext()['class']:
+    #     int_funders += f.findNext().text.strip() + '); '
+    #     f = f.findNext()
+    # int_funders = int_funders[:-2].replace('US$', '(US$') # String cleanup
+    
+    # # Handle multiple domestic funders
+    # dom_funders = ''
+    # f = soup.find(text='Co-financiers (Domestic)')
+    # while f != None and 'project-row-text' in f.findNext()['class']:
+    #     dom_funders += f.findNext().text.strip() + '); '
+    #     f = f.findNext()
+    # dom_funders = dom_funders[:-2].replace('US$', '(US$') # String cleanup
+    
+    # # Add international and domestic funders to the lists
+    # if len(int_funders) > 0:
+    #     data['Co-financiers (International)'] = int_funders
+    # if len(dom_funders) > 0:
+    #     data['Co-financiers (Domestic)'] = dom_funders
 
 # Export into excel file
 print("Creating excel file '{0}' with scraped data".format(OUTPUT_FILE))

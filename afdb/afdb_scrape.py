@@ -177,6 +177,7 @@ for index, row in project_ids.iterrows():
     soup = get_html(BASE_URL + row['Project Code'])
 
     # Get details from html
+    data['IFI'] = 'African Development Bank'
     data['Project ID'] = row['Project Code']
     data['Country'] = IFI_COUNTRIES[find_in_table(soup, 'Country').get_text()]
     # Break down the "Country - Project Title" header to get the title
@@ -185,8 +186,8 @@ for index, row in project_ids.iterrows():
     data['Project Title'] = title
     data['Status'] = find_in_table(soup, 'Status')
     data['Commitment in U.A.'] = find_in_table(soup, 'Commitment').split(' ', 1)[1]
-    data['Source of Financing'] = find_in_nonstandard_table(soup, 'Funding').get_text()
-    data['Sovereign'] = find_in_table(soup, 'Sovereign / Non-Sovereign').get_text()
+    #data['Source of Financing'] = find_in_nonstandard_table(soup, 'Funding').get_text()
+    #data['Sovereign'] = find_in_table(soup, 'Sovereign / Non-Sovereign').get_text()
     start_date = pd.to_datetime(find_in_table(soup, 'Approval Date'), infer_datetime_format=True)
     closing_date = pd.to_datetime(find_in_table(soup, 'Planned Completion Date'), infer_datetime_format=True)
     data['Project Duration'] = round((closing_date - start_date).days / 365.25, 2)
@@ -197,14 +198,24 @@ for index, row in project_ids.iterrows():
     data['Description'] += "\n" + obj if (obj != "" or obj == None) else ""
     data['Project Contact'] = str(find_in_table(soup, 'Name')).title()
     data['Contact Details'] = find_in_table(soup, 'Email')
-    data['Sector'] = find_in_table(soup, 'Sector').get_text()
     data['DAC Sector Code'] = find_in_table(soup, 'DAC Sector Code')
     data['Detailed Description'] = get_dac5_desc(data['DAC Sector Code'])
     data['DAC5 Code'] = data['DAC Sector Code'][:3]
     data['DAC5 Description'] = get_dac5_desc(data['DAC5 Code'])
-    
+    data['Primary Sector'] = find_in_table(soup, 'Sector').get_text()
+    data['Additional Sectors'] = "{0}; {1}".format(data['DAC5 Description'], data['Detailed Description'])
+
+    # Remove intermediate DAC sector codes to standardize columns across IFIs
+    data.pop('DAC Sector Code')
+    data.pop('DAC5 Code')
+    data.pop('DAC5 Description')
+    data.pop('Detailed Description')
+
+    # Print and store scraped project
     [print(key,':',value) for key, value in data.items()]
     scraped_data.append(data)
+    
+    # Break if debugging and reached limit
     count = count + 1
     if DEBUG and count == DEBUG_COUNT:
         print("Scraped first {0} projects for debugging, ending now".format(DEBUG_COUNT))

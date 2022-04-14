@@ -32,7 +32,8 @@ FILTERED_PROJECT_LIST = CWD +'wbp_data_debug.xlsx' if DEBUG else CWD + 'wbp_data
 PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
     'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
-RENAME_COLUMNS = {'Project Name': 'Project Title', 'Project Status':'Status', 'Project Development Objective ':'Description', 'Project Closing Date':'Closing Date'}
+RENAME_COLUMNS = {'Project Name': 'Project Title', 'Project Status':'Status', 'Project Development Objective ':'Description', 
+    'Project Closing Date':'Closing Date', 'Board Approval Date': 'Approval Date', 'Sector 1' : 'Primary Sector'}
 
 # Key = WB country name format, Value = IFI project country name format
 IFI_COUNTRIES = { 
@@ -107,6 +108,7 @@ print("Filtering to active projects in IFI countries")
 # Read in the unfiltered list of projects
 df = pd.read_excel(PROJECT_LIST, header=1)
 
+df['IFI'] = 'World Bank'
 # Commitment amount = IDA + IBRD + grant amounts. (Do this before dropping the Total & Grant columns)
 df['Commitment Amount (USD)'] = df['Total IDA and IBRD Commitment'] + df['Grant Amount']
 #Drop unneeded indicators and rename others
@@ -128,22 +130,22 @@ df = pd.concat([df, to_drop, to_drop]).drop_duplicates(keep=False)
 print("Keeping " + str(len(multiregion.index) - len(to_drop.index)) + " multi-region/world projects related to IFI countries (out of " + str(len(multiregion.index)) + ")")
 
 # Calculate duration
-df['Board Approval Date'] = pd.to_datetime(df['Board Approval Date'], infer_datetime_format=True).dt.tz_localize(None)
+df['Approval Date'] = pd.to_datetime(df['Approval Date'], infer_datetime_format=True).dt.tz_localize(None)
 df['Closing Date'] = pd.to_datetime(df['Closing Date'], infer_datetime_format=True).dt.tz_localize(None)
 
 # project duration = closing date - board approval date (in years, rounded to 2 decimals)
 # (only populated if there *is* a closing date, otherwise duration is null)
-df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Board Approval Date']).days / 365.25, 2) if pd.notnull(x['Closing Date']) else None, axis=1)
+df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Approval Date']).days / 365.25, 2) if pd.notnull(x['Closing Date']) else None, axis=1)
 
 # Remove time from dates
-df['Approval Date'] = df['Board Approval Date'].dt.date
+df['Approval Date'] = df['Approval Date'].dt.date
 df['Closing Date'] = df['Closing Date'].dt.date
 
 # Combine all sectors and themes into a single Sector column
-sector_df = df.filter(['Sector 1', 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1)
+sector_df = df.filter(['Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1)
 sector_df = sector_df.apply(lambda x: None if x.isnull().all() else '; '.join(x.dropna()), axis=1)
-df['Sector'] = sector_df
-df.drop(columns=['Board Approval Date', 'Sector 1', 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1, inplace=True)
+df['Additional Sectors'] = sector_df
+df.drop(columns=[ 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1, inplace=True)
 
 # Write to output file
 print("Writing the filtered project list to " + FILTERED_PROJECT_LIST)
