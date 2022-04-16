@@ -175,7 +175,7 @@ for index, row in project_ids.iterrows():
     # Start timer
     start_time = time.time()
     
-    print('\n\nScraping project: ' + row['Project Code'])
+    print('\n\nScraping project: {0} (~{1}/{2})'.format(row['Project Code']), count, len(project_ids.index))
     data = {}
     soup = get_html(BASE_URL + row['Project Code'])
 
@@ -217,7 +217,8 @@ for index, row in project_ids.iterrows():
     data.pop('Detailed Description')
 
     # Print and store scraped project
-    [print(key,':',value) for key, value in data.items()]
+    if DEBUG:
+        [print(key,':',value) for key, value in data.items()]
     scraped_data.append(data)
     
     # Break if debugging and reached limit
@@ -242,7 +243,7 @@ while True:
         df.to_excel(OUTPUT_FILE, index=False, na_rep='', float_format='%.2f')
         break
     except Exception as e:
-        print("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
+        print("Failed to write to Excel file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
         time.sleep(5)
 
 print('All done!')

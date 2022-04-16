@@ -17,7 +17,7 @@ import pandas as pd
 # Constants
 DEBUG = "" if len(sys.argv) == 1 or sys.argv[1] != '-debug' else '-debug'
 # Runs all IFI scrapes if true, otherwise uses already generated IFI data files
-RUN_SCRAPES = True
+RUN_SCRAPES = False
 
 CLIMATE_SEARCH_STRING = 'climate|carbon|sequester'
 IFIS = ["wdi", 'ifad', "wbp", "afdb"] # Ordered from shortest to longest scrape time
@@ -55,4 +55,4 @@ df.loc[df['Primary Sector'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,
 df.loc[df['Additional Sectors'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
 
 print('All scrapes done -- merging into single spreadsheet. If this step fails, fix the issue, then re-run this script with RUN_SCRAPES set to false to skip scraping the IFI data again!')
-df.to_excel(OUTPUT_FILE, index=True, na_rep='', float_format='%.2f')
+df.to_excel(OUTPUT_FILE, index=True, index_label='#', na_rep='', float_format='%.2f')
