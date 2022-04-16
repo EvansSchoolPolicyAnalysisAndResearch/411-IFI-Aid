@@ -30,7 +30,8 @@ import unidecode
 from bs4 import BeautifulSoup
 
 # Constants
-DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "-debug"
+DEBUG_NUM_PROJECTS = 5
 BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=search'
 TABS = [1,2,3]
 PROJECT_URL = 'https://www.ifad.org/en/web/operations/-/project/'
@@ -134,7 +135,8 @@ def rename_indicator(data, old_name, new_name):
     data[new_name] = data.pop(old_name)
 
 # Main
-projects = get_proj_ids(BASE_URL, TABS) if not DEBUG else ['2000003362', '2000001936']
+projects = get_proj_ids(BASE_URL, TABS)
+projects = projects if not DEBUG else projects[:DEBUG_MAX]
 scraped_data = []
 
 for project_id in projects:

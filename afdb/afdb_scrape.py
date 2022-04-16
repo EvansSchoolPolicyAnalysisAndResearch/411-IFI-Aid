@@ -27,8 +27,8 @@ import time
 from bs4 import BeautifulSoup
 
 # Constants
-DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
-DEBUG_COUNT = 5 # How many projects to scrape when debugging
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "-debug"
+DEBUG_NUM_PROJECTS = 5
 
 BASE_URL = 'https://projectsportal.afdb.org/dataportal/VProject/show/'
 CWD = './data/'
@@ -222,8 +222,8 @@ for index, row in project_ids.iterrows():
     
     # Break if debugging and reached limit
     count = count + 1
-    if DEBUG and count == DEBUG_COUNT:
-        print("Scraped first {0} projects for debugging, ending now".format(DEBUG_COUNT))
+    if DEBUG and count == DEBUG_NUM_PROJECTS:
+        print("Scraped first {0} projects for debugging, ending now".format(DEBUG_NUM_PROJECTS))
         break
 
     # Make sure to wait before scraping each page (10s delay requested by AfDB's robots.txt)

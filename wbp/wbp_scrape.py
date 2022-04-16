@@ -28,7 +28,8 @@ import time
 from bs4 import BeautifulSoup
 
 # Constants
-DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "-debug"
+DEBUG_NUM_PROJECTS = 5
 PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
 CWD = "./data/"
 PROJECT_LIST = CWD + 'wbp_unfiltered.xls'
@@ -168,15 +169,17 @@ df.drop(columns=[ 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1, inplace
 # index indexes into the df but has skips, count is a sequential counter with no relation to the df
 count = 0
 for index, row in df.iterrows():
-    print("Getting contact information for #{0}, project ID {1}".format(count, row["Project ID"]))
+    if DEBUG:
+        print("Getting contact information for #{0}, project ID {1}".format(count, row["Project ID"]))
     response = json.loads(get_html(PROJECT_API + row['Project ID']).text)
     team_lead = response['projects'][row['Project ID']]['teamleadname']
     team_lead = team_lead.replace(',', ', ').replace('NIL', '')
-    print(team_lead)
+    if DEBUG:
+        print(team_lead)
     df.at[index, 'Project Contact'] = team_lead
     count = count + 1
     # Only run for 20 if debugging
-    if DEBUG and count >= 20:
+    if DEBUG and count >= DEBUG_NUM_PROJECTS:
         break
 
 # Write to output file
