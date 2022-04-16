@@ -229,7 +229,7 @@ for index, row in project_ids.iterrows():
     # Make sure to wait before scraping each page (10s delay requested by AfDB's robots.txt)
     elapsed = time.time() - start_time
     if elapsed < SCRAPE_DELAY_IN_SEC:
-        print("Waiting %.2fs before next scrape" % (10 - SCRAPE_DELAY_IN_SEC))
+        print("Waiting %.2fs before next scrape" % (SCRAPE_DELAY_IN_SEC - elapsed))
         time.sleep(SCRAPE_DELAY_IN_SEC - elapsed)
 
 # Convert into an excel file
