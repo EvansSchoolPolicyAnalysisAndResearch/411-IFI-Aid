@@ -34,7 +34,7 @@ DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
 BASE_URL = 'https://www.ifad.org/en/web/operations/projects-and-programmes?mode=search'
 TABS = [1,2,3]
 PROJECT_URL = 'https://www.ifad.org/en/web/operations/-/project/'
-OUTPUT_FILE = './data/ifad_data_debug.csv' if DEBUG else './data/ifad_data.csv'
+OUTPUT_FILE = './data/ifad_data_debug.xlsx' if DEBUG else './data/ifad_data.xlsx'
 IFI_COUNTRIES = {
     'Angola': 'Angola',
     'Benin': 'Benin',
@@ -146,7 +146,7 @@ for project_id in projects:
         next
     data['IFI'] = "International Fund for Agricultural Development"
     manual_scrape(soup, data, 'Country')
-    data['Project ID'] = project_id
+    data['Project ID'] = int(project_id)
     data['Project Title'] = soup.select("h1[class!=\"hide-accessible\"]")[0].text
     data['Status'] = soup.select('dd.project-status > span')[0].text[8:]
     manual_scrape(soup, data, 'Approval Date')
@@ -161,7 +161,7 @@ for project_id in projects:
     # Translates duration = "2021 - 2024" into "3"
     duration = re.split(' - ', data['Project Duration'])
     data['Project Duration'] = int(duration[1]) - int(duration[0])
-    data['Closing Date'] = duration[1]
+    data['Closing Date'] = int(duration[1])
 
     #Scrape contact data
     contact_name = manual_scrape(soup, data, 'Project Contact')
@@ -216,10 +216,11 @@ df = pd.DataFrame.from_records(scraped_data)
 # Don't fail because the output file was open
 while True:
     try:
-        df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
+        df.to_excel(OUTPUT_FILE, index=False, na_rep='', float_format='%.2f')
         break
     except Exception as e:
-        print("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
+        print(e)
+        print("Failed to write to Excel file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
         time.sleep(5)
 
 print('All done!')

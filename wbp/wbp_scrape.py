@@ -19,9 +19,13 @@ license.txt file for more information.
 """
 
 # Imports
+import html
+import json
 import pandas as pd
 import requests
 import sys
+import time
+from bs4 import BeautifulSoup
 
 # Constants
 DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
@@ -29,9 +33,10 @@ PROJECT_LIST_URL = 'https://search.worldbank.org/api/projects/all.xls'
 CWD = "./data/"
 PROJECT_LIST = CWD + 'wbp_unfiltered.xls'
 FILTERED_PROJECT_LIST = CWD +'wbp_data_debug.xlsx' if DEBUG else CWD + 'wbp_data.xlsx'
-PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,project_abstract,boardapprovaldate,closingdate&source=IBRD&id="
+PROJECT_API = "http://search.worldbank.org/api/v2/projects?format=json&fl=id,teamleadname&id="
 DROP_COLUMNS = ['Region', 'Consultant Services Required', 'IBRD Commitment ', 'IDA Commitment', 'Grant Amount',
-    'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment']
+    'Environmental Assessment Category','Environmental and Social Risk', 'Total IDA and IBRD Commitment', 'Implementing Agency', 'Financing Type',
+    'Borrower', 'Lending Instrument','Current Project Cost', 'Project URL']
 RENAME_COLUMNS = {'Project Name': 'Project Title', 'Project Status':'Status', 'Project Development Objective ':'Description', 
     'Project Closing Date':'Closing Date', 'Board Approval Date': 'Approval Date', 'Sector 1' : 'Primary Sector'}
 
@@ -93,6 +98,19 @@ IFI_COUNTRIES = {
 # Add Western Africa, Eastern African, Southern Africa, Central Africa
 MULTI_REGION = ['World']
 
+def get_html(url):
+    attempts = 0
+    while(attempts < 20):
+        try:
+            attempts += 1
+            response = requests.get(url)
+            clean_html = html.unescape(response.text)
+            return BeautifulSoup(clean_html, 'html.parser')
+        except (Exception) as e:
+            print('Failed to download webpage, trying again')
+            time.sleep(5)
+    return None    
+
 # Main
 if not DEBUG:
     # Download the excel spreadsheet from the world bank website
@@ -141,11 +159,25 @@ df['Project Duration'] = df.apply(lambda x: round((x['Closing Date'] - x['Approv
 df['Approval Date'] = df['Approval Date'].dt.date
 df['Closing Date'] = df['Closing Date'].dt.date
 
-# Combine all sectors and themes into a single Sector column
+# Combine sectors 2 & 3 and themes 1 & 2 into Additional Sectors
 sector_df = df.filter(['Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1)
 sector_df = sector_df.apply(lambda x: None if x.isnull().all() else '; '.join(x.dropna()), axis=1)
 df['Additional Sectors'] = sector_df
 df.drop(columns=[ 'Sector 2', 'Sector 3', 'Theme 1', 'Theme 2'], axis=1, inplace=True)
+
+# index indexes into the df but has skips, count is a sequential counter with no relation to the df
+count = 0
+for index, row in df.iterrows():
+    print("Getting contact information for #{0}, project ID {1}".format(count, row["Project ID"]))
+    response = json.loads(get_html(PROJECT_API + row['Project ID']).text)
+    team_lead = response['projects'][row['Project ID']]['teamleadname']
+    team_lead = team_lead.replace(',', ', ').replace('NIL', '')
+    print(team_lead)
+    df.at[index, 'Project Contact'] = team_lead
+    count = count + 1
+    # Only run for 20 if debugging
+    if DEBUG and count >= 20:
+        break
 
 # Write to output file
 print("Writing the filtered project list to " + FILTERED_PROJECT_LIST)

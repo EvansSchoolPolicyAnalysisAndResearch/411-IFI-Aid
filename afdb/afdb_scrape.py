@@ -29,11 +29,14 @@ from bs4 import BeautifulSoup
 # Constants
 DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
 DEBUG_COUNT = 5 # How many projects to scrape when debugging
+
 BASE_URL = 'https://projectsportal.afdb.org/dataportal/VProject/show/'
 CWD = './data/'
 PROJECT_LIST_URL = 'https://projectsportal.afdb.org/dataportal/VProject/exportProjectList?reportName=dataPortal_project_list'
 PROJECT_LIST = CWD + 'afdb_ids_debug.xlsx' if DEBUG else CWD + 'afdb_ids.xlsx'
-OUTPUT_FILE = CWD + 'afdb_debug.csv' if DEBUG else CWD + 'afdb_data.csv'
+OUTPUT_FILE = CWD + 'afdb_data_debug.xlsx' if DEBUG else CWD + 'afdb_data.xlsx'
+SCRAPE_DELAY_IN_SEC = 5
+UA_TO_USD_MULTIPLIER = 1.39589
 # Key = AfDB country name format, Value = IFI project country name format
 IFI_COUNTRIES = { 
     'Angola': 'Angola',
@@ -179,19 +182,21 @@ for index, row in project_ids.iterrows():
     # Get details from html
     data['IFI'] = 'African Development Bank'
     data['Project ID'] = row['Project Code']
-    data['Country'] = IFI_COUNTRIES[find_in_table(soup, 'Country').get_text()]
+    country = find_in_table(soup, 'Country')
+    data['Country'] = IFI_COUNTRIES[country.get_text() if type(country) != str else country]
     # Break down the "Country - Project Title" header to get the title
     cpt = soup.body.find('h2', class_='title').get_text().split('- ', 1)
     title = cpt[1] if len(cpt) == 2 else cpt[0]
     data['Project Title'] = title
     data['Status'] = find_in_table(soup, 'Status')
-    data['Commitment in U.A.'] = find_in_table(soup, 'Commitment').split(' ', 1)[1]
+    ua_commitment = find_in_table(soup, 'Commitment').split(' ', 1)[1]
+    data['Commitment Amount (USD)'] = int(float(ua_commitment.replace(',','')) * UA_TO_USD_MULTIPLIER) if ua_commitment != None else None
     #data['Source of Financing'] = find_in_nonstandard_table(soup, 'Funding').get_text()
     #data['Sovereign'] = find_in_table(soup, 'Sovereign / Non-Sovereign').get_text()
     start_date = pd.to_datetime(find_in_table(soup, 'Approval Date'), infer_datetime_format=True)
     closing_date = pd.to_datetime(find_in_table(soup, 'Planned Completion Date'), infer_datetime_format=True)
     data['Project Duration'] = round((closing_date - start_date).days / 365.25, 2)
-    data['Start Date'] = start_date.date().isoformat()
+    data['Approval Date'] = start_date.date().isoformat()
     data['Closing Date'] = closing_date.date().isoformat()
     data['Description'] = str(find_in_heading(soup, 'Project General Description')) 
     obj = str(find_in_heading(soup, 'Project Objectives'))
@@ -223,9 +228,9 @@ for index, row in project_ids.iterrows():
 
     # Make sure to wait before scraping each page (10s delay requested by AfDB's robots.txt)
     elapsed = time.time() - start_time
-    if elapsed < 10:
-        print("Waiting %.2fs before next scrape" % (10 - elapsed))
-        time.sleep(10 - elapsed)
+    if elapsed < SCRAPE_DELAY_IN_SEC:
+        print("Waiting %.2fs before next scrape" % (10 - SCRAPE_DELAY_IN_SEC))
+        time.sleep(SCRAPE_DELAY_IN_SEC - elapsed)
 
 # Convert into an excel file
 print("Creating excel file '%s' with scraped data" % OUTPUT_FILE)
@@ -234,7 +239,7 @@ df = pd.DataFrame.from_records(scraped_data)
 # Don't fail because the output file was open
 while True:
     try:
-        df.to_csv(open(OUTPUT_FILE, 'w'), index=False, line_terminator='\n', na_rep='NA')
+        df.to_excel(OUTPUT_FILE, index=False, na_rep='', float_format='%.2f')
         break
     except Exception as e:
         print("Failed to write to CSV file. Please make sure that 1) file is closed, and 2) you are running this script from the 411-IFI-Aid/ folder.")
