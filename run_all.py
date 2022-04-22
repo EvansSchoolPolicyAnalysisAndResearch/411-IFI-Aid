@@ -56,15 +56,17 @@ df.loc[df['Project Title'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,c
 df.loc[df['Description'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
 df.loc[df['Primary Sector'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
 df.loc[df['Additional Sectors'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
-# Generate rural/ag economies flag (boolean: is the project in a sector involving rural/ag economies?)
-df['Rural/Ag Economies Flag'] = 0
-df.loc[df['Primary Sector'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS + ON_FARM_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
-df.loc[df['Additional Sectors'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS + ON_FARM_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
 
-# Generate rural/ag economies flag (boolean: is the project in a sector involving on-farm activity? strictly a subset of rural/ag economies)
+# Generate rural/ag economies flag (boolean: is the project in a sector involving on-farm activity? strictly a subset of rural/ag economies below)
 df['On-Farm Flag'] = 0
 df.loc[df['Primary Sector'].fillna(value='').str.contains('|'.join(ON_FARM_SECTORS),case=False) ,'On-Farm Flag'] = 1
 df.loc[df['Additional Sectors'].fillna(value='').str.contains('|'.join(ON_FARM_SECTORS),case=False) ,'On-Farm Flag'] = 1
+
+# Generate rural/ag economies flag (boolean: is the project in a sector involving rural/ag economies?)
+df['Rural/Ag Economies Flag'] = df['On-Farm Flag']
+df.loc[df['Primary Sector'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
+df.loc[df['Additional Sectors'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
+
 
 print('All scrapes done -- merging into single spreadsheet. If this step fails, fix the issue, then re-run this script with RUN_SCRAPES set to false to skip scraping the IFI data again!')
 df.to_excel(OUTPUT_FILE, index=True, index_label='#', na_rep='', float_format='%.2f')
