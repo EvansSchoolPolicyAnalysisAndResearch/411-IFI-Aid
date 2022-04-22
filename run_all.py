@@ -20,7 +20,8 @@ DEBUG = "" if len(sys.argv) == 1 or sys.argv[1] != '-debug' else '-debug'
 RUN_SCRAPES = False
 
 CLIMATE_SEARCH_STRING = 'climat.*|emissions|(?:energy&(?:green&renewable&clean))| carbon|temperature|greenhouse gas'
-RURAL_AG_ECONOMIES_SECTORS = ['Agricultural markets, commercialization and agri-business','Forestry','Rural and Inter-Urban Roads'] #iat_funds
+RURAL_AG_ECONOMIES_SECTORS = ['Agricultural Development', 'Agriculuture and Rural Development',
+'Agricultural markets, commercialization and agri-business','Forestry','Rural and Inter-Urban Roads', 'Rural Development'] #iat_funds
 ON_FARM_SECTORS = ['Agricultural Extension, Research, and Other Support Activities','Agriculture','Crops','Fisheries','Fishing','Irrigation and Drainage',
     'Livestock','Other Agriculture, Fishing and Forestry','Public Administration - Agriculture, Fishing & Forestry']  #ag_funds
 IFIS = ["wdi", 'ifad', "wbp", "afdb"] # Ordered from shortest to longest scrape time
