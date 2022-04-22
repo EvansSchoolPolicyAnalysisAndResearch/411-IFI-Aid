@@ -19,7 +19,10 @@ DEBUG = "" if len(sys.argv) == 1 or sys.argv[1] != '-debug' else '-debug'
 # Runs all IFI scrapes if true, otherwise uses already generated IFI data files
 RUN_SCRAPES = False
 
-CLIMATE_SEARCH_STRING = 'climate|carbon|sequester'
+CLIMATE_SEARCH_STRING = 'climat.*|emissions|(?:energy&(?:green&renewable&clean))| carbon|temperature|greenhouse gas'
+RURAL_AG_ECONOMIES_SECTORS = ['Agricultural markets, commercialization and agri-business','Forestry','Rural and Inter-Urban Roads'] #iat_funds
+ON_FARM_SECTORS = ['Agricultural Extension, Research, and Other Support Activities','Agriculture','Crops','Fisheries','Fishing','Irrigation and Drainage',
+    'Livestock','Other Agriculture, Fishing and Forestry','Public Administration - Agriculture, Fishing & Forestry']  #ag_funds
 IFIS = ["wdi", 'ifad', "wbp", "afdb"] # Ordered from shortest to longest scrape time
 OUTPUT_FILE = 'data/ifi_data.xlsx'
 
@@ -53,6 +56,15 @@ df.loc[df['Project Title'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,c
 df.loc[df['Description'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
 df.loc[df['Primary Sector'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
 df.loc[df['Additional Sectors'].fillna(value='').str.contains(CLIMATE_SEARCH_STRING,case=False) ,'Climate Flag'] = 1
+# Generate rural/ag economies flag (boolean: is the project in a sector involving rural/ag economies?)
+df['Rural/Ag Economies Flag'] = 0
+df.loc[df['Primary Sector'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS + ON_FARM_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
+df.loc[df['Additional Sectors'].fillna(value='').str.contains('|'.join(RURAL_AG_ECONOMIES_SECTORS + ON_FARM_SECTORS),case=False) ,'Rural/Ag Economies Flag'] = 1
+
+# Generate rural/ag economies flag (boolean: is the project in a sector involving on-farm activity? strictly a subset of rural/ag economies)
+df['On-Farm Flag'] = 0
+df.loc[df['Primary Sector'].fillna(value='').str.contains('|'.join(ON_FARM_SECTORS),case=False) ,'On-Farm Flag'] = 1
+df.loc[df['Additional Sectors'].fillna(value='').str.contains('|'.join(ON_FARM_SECTORS),case=False) ,'On-Farm Flag'] = 1
 
 print('All scrapes done -- merging into single spreadsheet. If this step fails, fix the issue, then re-run this script with RUN_SCRAPES set to false to skip scraping the IFI data again!')
 df.to_excel(OUTPUT_FILE, index=True, index_label='#', na_rep='', float_format='%.2f')
