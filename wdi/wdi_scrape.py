@@ -24,7 +24,7 @@ import requests
 import sys
 
 # Constants
-DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "True"
+DEBUG = False if len(sys.argv) == 1 else sys.argv[1] == "-debug"
 API_BASE = 'http://api.worldbank.org/v2/country/{ctry}/indicator/{ind}?date={yr}&format=json'
 YEARS = ['2009', '2010']
 INDICATOR_CSV = './wdi/wdi_inds.csv'
@@ -97,9 +97,10 @@ for ind, name in inds.items():
             fields[field] = True
             data[c["countryiso3code"]][field] = c['value']
 fields = fields.keys()
-w = csv.DictWriter(open(OUTPUT_CSV, 'w+', newline=''), fields, extrasaction = "ignore")
-for k in data: w.writerow(data[k])
 
 if DEBUG:
     print(data)
+
+w = csv.DictWriter(open(OUTPUT_CSV, 'w+', newline=''), fields, extrasaction = "ignore")
 w.writeheader()
+for k in data: w.writerow(data[k])

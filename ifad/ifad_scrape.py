@@ -136,7 +136,7 @@ def rename_indicator(data, old_name, new_name):
 
 # Main
 projects = get_proj_ids(BASE_URL, TABS)
-projects = projects if not DEBUG else projects[:DEBUG_MAX]
+projects = projects if not DEBUG else projects[:DEBUG_NUM_PROJECTS]
 scraped_data = []
 
 for project_id in projects:
