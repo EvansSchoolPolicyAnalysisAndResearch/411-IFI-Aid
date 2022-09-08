@@ -33,6 +33,9 @@ python wbp/wbp_scrape.py
 
 Each script has a debug flag that, when set, reduces the number of projects visited and avoids accessing the IFIs website when possible. This flag should not be set unless actively changing/updating the scripts. To debug, simply add "-debug" to the end of any run command (e.g. `python run_all.py -debug`). This flag will make the scripts pull the first five projects from each IFI to reduce time spent when debugging the scripts.
 
+# ICABR 2022 Analysis
+This repository also contains Stata code in `/stata` that was used to clean and process webscraped IFI project data and OECD ODA data for the 2022 International Consortium on Applied Bioeconomy Research Conference. Input data files for both Stata scripts are included in the same folder. 
+
 # Links
 
 ### African Development Bank (AfDB)
